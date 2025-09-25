@@ -68,9 +68,16 @@ COPY --from=frontend-builder /app/dist /usr/share/nginx/html
 
 COPY nginx.conf /etc/nginx/http.d/default.conf
 COPY supervisord.conf /etc/supervisord.conf
+COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+# 安装 postgresql-client 用于健康检查
+RUN apk add --no-cache postgresql-client
+
+# 设置启动脚本权限
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENV TZ=Asia/Shanghai
 
 EXPOSE 80
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
+CMD ["/usr/local/bin/docker-entrypoint.sh"]
