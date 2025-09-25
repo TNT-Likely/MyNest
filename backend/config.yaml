@@ -1,0 +1,22 @@
+server:
+  port: 8080
+  mode: debug
+
+database:
+  host: localhost
+  port: 5432
+  user: matrix
+  dbname: mynest
+  sslmode: disable
+
+redis:
+  addr: localhost:6379
+  password: ""
+  db: 0
+
+aria2:
+  rpc_url: http://localhost:6800/jsonrpc
+  rpc_secret: your-aria2-secret
+
+download:
+  save_path: /downloads

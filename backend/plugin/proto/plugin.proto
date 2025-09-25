@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package plugin;
+
+option go_package = "github.com/matrix/mynest/backend/plugin/proto";
+
+service PluginService {
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Start(StartRequest) returns (StartResponse);
+  rpc Stop(StopRequest) returns (StopResponse);
+  rpc GetConfigSchema(Empty) returns (ConfigSchema);
+}
+
+message Empty {}
+
+message RegisterRequest {
+  string name = 1;
+  string version = 2;
+}
+
+message RegisterResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message StartRequest {
+  map<string, string> config = 1;
+}
+
+message StartResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message StopRequest {}
+
+message StopResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ConfigField {
+  string key = 1;
+  string label = 2;
+  string type = 3;
+  bool required = 4;
+}
+
+message ConfigSchema {
+  repeated ConfigField fields = 1;
+}
