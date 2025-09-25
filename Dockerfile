@@ -32,6 +32,9 @@ WORKDIR /app
 
 COPY --from=backend-builder /app/mynest ./mynest
 COPY --from=backend-builder /app/telegram-bot ./telegram-bot
+COPY --from=backend-builder /app/scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY --from=backend-builder /app/nginx.conf /etc/nginx/http.d/default.conf
+COPY --from=backend-builder /app/supervisord.conf /etc/supervisord.conf
 
 # 创建日志目录
 RUN mkdir -p ./logs
@@ -65,10 +68,6 @@ EOF
 # 二进制文件已经复制，不需要源码和依赖
 
 COPY --from=frontend-builder /app/dist /usr/share/nginx/html
-
-COPY nginx.conf /etc/nginx/http.d/default.conf
-COPY supervisord.conf /etc/supervisord.conf
-COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 # 安装 postgresql-client 用于健康检查
 RUN apk add --no-cache postgresql-client
