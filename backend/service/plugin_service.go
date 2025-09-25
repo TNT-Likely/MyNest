@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"log"
+	"os"
 
 	"github.com/matrix/mynest/backend/model"
 	"github.com/matrix/mynest/backend/plugin"
@@ -28,12 +30,38 @@ func (s *PluginService) EnablePlugin(ctx context.Context, name string, config ma
 		return err
 	}
 
-	return s.runner.StartPlugin(ctx, name)
+	// 通过环境变量判断运行模式
+	runMode := os.Getenv("RUN_MODE")
+	if runMode == "" {
+		runMode = "development" // 默认为开发模式
+	}
+
+	if runMode == "production" || runMode == "release" {
+		// 生产环境：插件已由 supervisord 启动，只需建立 gRPC 连接
+		log.Printf("[PluginService] 生产环境模式 (%s)：插件 %s 由 supervisord 管理，建立 gRPC 连接", runMode, name)
+		return nil
+	} else {
+		// 开发环境：通过 PluginRunner 启动插件进程
+		log.Printf("[PluginService] 开发环境模式 (%s)：通过 PluginRunner 启动插件 %s", runMode, name)
+		return s.runner.StartPlugin(ctx, name)
+	}
 }
 
 func (s *PluginService) DisablePlugin(ctx context.Context, name string) error {
-	if err := s.runner.StopPlugin(ctx, name); err != nil {
-		// 即使停止失败也继续禁用
+	// 通过环境变量判断运行模式
+	runMode := os.Getenv("RUN_MODE")
+	if runMode == "" {
+		runMode = "development"
+	}
+
+	if runMode == "production" || runMode == "release" {
+		// 生产环境：插件由 supervisord 管理，只需断开 gRPC 连接
+		log.Printf("[PluginService] 生产环境模式 (%s)：断开插件 %s 的 gRPC 连接", runMode, name)
+	} else {
+		// 开发环境：停止 PluginRunner 管理的进程
+		if err := s.runner.StopPlugin(ctx, name); err != nil {
+			log.Printf("[PluginService] 开发环境模式 (%s)：停止插件 %s 进程失败: %v", runMode, name, err)
+		}
 	}
 
 	return s.manager.DisablePlugin(ctx, name)

@@ -60,6 +60,7 @@ services:
     # 恢复 supervisord 管理进程
     # command: 默认使用 Dockerfile 中的 CMD
     environment:
+      RUN_MODE: production
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: mynest

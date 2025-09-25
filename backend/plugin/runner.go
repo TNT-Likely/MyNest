@@ -154,8 +154,17 @@ func (r *PluginRunner) IsPluginRunning(name string) bool {
 func (r *PluginRunner) buildPluginCommand(name string, config map[string]interface{}) (*exec.Cmd, error) {
 	switch name {
 	case "telegram-bot":
-		pluginPath := "plugins/telegram-bot/main.go"
-		cmd := exec.Command("go", "run", pluginPath)
+		var cmd *exec.Cmd
+
+		// 检查是否在 Docker 环境中（通过检查二进制文件是否存在）
+		if _, err := os.Stat("./telegram-bot"); err == nil {
+			// Docker 环境：使用编译好的二进制文件
+			cmd = exec.Command("./telegram-bot")
+		} else {
+			// 本地开发环境：使用 go run
+			pluginPath := "plugins/telegram-bot/main.go"
+			cmd = exec.Command("go", "run", pluginPath)
+		}
 
 		if botToken, ok := config["bot_token"].(string); ok && botToken != "" {
 			cmd.Env = append(os.Environ(), fmt.Sprintf("BOT_TOKEN=%s", botToken))

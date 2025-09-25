@@ -81,10 +81,13 @@ func (s *TaskSyncService) syncActiveTasks() {
 			updates["status"] = string(types.TaskStatusFailed)
 			if status.ErrorMessage != "" {
 				updates["error_msg"] = status.ErrorMessage
+				log.Printf("[TaskSync] ❌ 任务 %d 失败: %s, Aria2状态: %s, 错误: %s", task.ID, task.URL, status.Status, status.ErrorMessage)
 			} else if status.Status == "error" {
 				updates["error_msg"] = "下载失败，未知错误"
+				log.Printf("[TaskSync] ❌ 任务 %d 失败: %s, Aria2状态: %s, 原因: 未知错误", task.ID, task.URL, status.Status)
 			} else {
 				updates["error_msg"] = "任务已被移除"
+				log.Printf("[TaskSync] ❌ 任务 %d 被移除: %s, Aria2状态: %s", task.ID, task.URL, status.Status)
 			}
 		}
 

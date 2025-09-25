@@ -3,6 +3,7 @@ package downloader
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/zyxar/argo/rpc"
@@ -39,6 +40,7 @@ func (a *Aria2Client) AddURI(ctx context.Context, uris []string, options map[str
 func (a *Aria2Client) TellStatus(ctx context.Context, gid string) (*Status, error) {
 	info, err := a.client.TellStatus(gid)
 	if err != nil {
+		log.Printf("[Aria2] TellStatus 失败, GID: %s, 错误: %v", gid, err)
 		return nil, fmt.Errorf("failed to get status: %w", err)
 	}
 
@@ -54,6 +56,15 @@ func (a *Aria2Client) TellStatus(ctx context.Context, gid string) (*Status, erro
 		DownloadSpeed:   downloadSpeed,
 		ErrorMessage:    info.ErrorMessage,
 		Files:           make([]File, len(info.Files)),
+	}
+
+	// 详细状态日志
+	if info.Status == "error" || info.Status == "removed" {
+		log.Printf("[Aria2] ❌ 任务失败 - GID: %s, Status: %s, ErrorMessage: %s, TotalLength: %d",
+			gid, info.Status, info.ErrorMessage, totalLen)
+	} else {
+		log.Printf("[Aria2] 📊 任务状态 - GID: %s, Status: %s, Progress: %d/%d bytes, Speed: %d B/s",
+			gid, info.Status, completedLen, totalLen, downloadSpeed)
 	}
 
 	for i, f := range info.Files {

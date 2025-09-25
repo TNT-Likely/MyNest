@@ -126,7 +126,7 @@ func (s *DownloadService) SubmitDownload(ctx context.Context, req types.Download
 		task.ErrorMsg = err.Error()
 		s.db.Save(task)
 
-		// TODO: 记录下载失败日志
+		log.Printf("[DownloadService] ❌ 下载任务添加失败: URL=%s, Plugin=%s, Error=%v", req.URL, req.PluginName, err)
 		log.Printf("[DownloadService] 下载任务失败: %s, 错误: %v", req.URL, err)
 
 		return nil, fmt.Errorf("failed to add download: %w", err)
