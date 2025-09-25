@@ -21,8 +21,8 @@ COPY . .
 
 RUN go mod tidy
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o mynest ./backend/main.go
-RUN CGO_ENABLED=0 GOOS=linux go build -o telegram-bot ./plugins/telegram-bot/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o mynest ./backend
+RUN CGO_ENABLED=0 GOOS=linux go build -o telegram-bot ./plugins/telegram-bot
 
 FROM alpine:latest
 
