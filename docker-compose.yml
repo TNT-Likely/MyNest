@@ -51,6 +51,7 @@ services:
         condition: service_healthy
       aria2:
         condition: service_started
+    command: sh -c "sleep 10 && /usr/bin/supervisord -c /etc/supervisord.conf"
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -64,11 +65,11 @@ services:
       - ${DOWNLOAD_DIR:-./downloads}:/downloads
     networks:
       - mynest
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    # healthcheck:
+    #   test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
 
 volumes:
   postgres_data:
