@@ -63,8 +63,7 @@ services:
       echo 'ARIA2_RPC_URL:' $$ARIA2_RPC_URL &&
       sleep 10 &&
       echo 'Starting Go backend directly...' &&
-      cd /app && ./mynest
-    "
+      cd /app && ./mynest"
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
