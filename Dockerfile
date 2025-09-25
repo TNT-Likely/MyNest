@@ -32,7 +32,6 @@ WORKDIR /app
 
 COPY --from=backend-builder /app/mynest ./mynest
 COPY --from=backend-builder /app/telegram-bot ./telegram-bot
-COPY --from=backend-builder /app/scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY --from=backend-builder /app/nginx.conf /etc/nginx/http.d/default.conf
 COPY --from=backend-builder /app/supervisord.conf /etc/supervisord.conf
 
@@ -69,14 +68,8 @@ EOF
 
 COPY --from=frontend-builder /app/dist /usr/share/nginx/html
 
-# 安装 postgresql-client 用于健康检查
-RUN apk add --no-cache postgresql-client
-
-# 设置启动脚本权限
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
 ENV TZ=Asia/Shanghai
 
 EXPOSE 80
 
-CMD ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
