@@ -10,7 +10,7 @@ COPY frontend/ .
 
 RUN pnpm build
 
-FROM golang:1.21-alpine AS backend-builder
+FROM golang:1.23-alpine AS backend-builder
 
 WORKDIR /app
 
@@ -21,7 +21,7 @@ COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o mynest ./backend/main.go
 
-FROM golang:1.21-alpine
+FROM golang:1.23-alpine
 
 RUN apk --no-cache add ca-certificates tzdata nginx supervisor
 
