@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast'
 import TasksPage from './pages/TasksPage'
 import PluginsPage from './pages/PluginsPage'
 import SystemConfig from './pages/SystemConfig'
+import SystemLogs from './pages/SystemLogs'
 
 function Navigation() {
   const location = useLocation()
@@ -45,6 +46,14 @@ function Navigation() {
               >
                 系统配置
               </Link>
+              <Link
+                to="/logs"
+                className={`text-sm font-medium transition-colors hover:text-primary ${
+                  isActive('/logs') ? 'text-primary' : 'text-muted-foreground'
+                }`}
+              >
+                系统日志
+              </Link>
             </div>
           </div>
         </div>
@@ -64,6 +73,7 @@ function App() {
             <Route path="/" element={<TasksPage />} />
             <Route path="/plugins" element={<PluginsPage />} />
             <Route path="/settings" element={<SystemConfig />} />
+            <Route path="/logs" element={<SystemLogs />} />
           </Routes>
         </main>
         <Toaster

@@ -29,6 +29,7 @@ func (a *Aria2Client) AddURI(ctx context.Context, uris []string, options map[str
 	fmt.Printf("[Aria2] AddURI called with URIs: %v, Options: %+v\n", uris, options)
 	gid, err := a.client.AddURI(uris, options)
 	if err != nil {
+		fmt.Printf("[Aria2] AddURI failed with error: %v\n", err)
 		return "", fmt.Errorf("failed to add URI: %w", err)
 	}
 	fmt.Printf("[Aria2] Successfully added, GID: %s\n", gid)

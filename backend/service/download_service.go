@@ -123,7 +123,12 @@ func (s *DownloadService) SubmitDownload(ctx context.Context, req types.Download
 	gid, err := s.downloader.AddURI(ctx, []string{req.URL}, options)
 	if err != nil {
 		task.Status = string(types.TaskStatusFailed)
+		task.ErrorMsg = err.Error()
 		s.db.Save(task)
+
+		// TODO: 记录下载失败日志
+		log.Printf("[DownloadService] 下载任务失败: %s, 错误: %v", req.URL, err)
+
 		return nil, fmt.Errorf("failed to add download: %w", err)
 	}
 
@@ -132,6 +137,9 @@ func (s *DownloadService) SubmitDownload(ctx context.Context, req types.Download
 	if err := s.db.Save(task).Error; err != nil {
 		return nil, fmt.Errorf("failed to update task: %w", err)
 	}
+
+	// TODO: 记录下载开始日志
+	log.Printf("[DownloadService] 开始下载任务: %s, GID: %s, Plugin: %s", req.URL, gid, req.PluginName)
 
 	return task, nil
 }

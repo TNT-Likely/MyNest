@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -47,7 +48,6 @@ func main() {
 
 	pluginManager := plugin.NewManager(db)
 	pluginRunner := plugin.NewPluginRunner(db)
-	downloadService := service.NewDownloadService(db, aria2Client)
 	pluginService := service.NewPluginService(pluginManager, pluginRunner)
 	systemConfigService := service.NewSystemConfigService(db)
 
@@ -60,9 +60,20 @@ func main() {
 	}
 	defer pluginRunner.StopAll()
 
+	logsService := service.NewLogsService(db)
+	downloadService := service.NewDownloadService(db, aria2Client)
+
+	// 添加一些测试日志
+	ctx := context.Background()
+	logsService.AddLog(ctx, "INFO", "system", "MyNest 系统启动", "Core service started successfully", "Main")
+	logsService.AddLog(ctx, "DEBUG", "system", "数据库连接成功", "Connected to PostgreSQL database", "Database")
+	logsService.AddLog(ctx, "INFO", "plugin", "插件管理器初始化完成", "", "PluginManager")
+
 	downloadHandler := handler.NewDownloadHandler(downloadService)
 	pluginHandler := handler.NewPluginHandler(pluginService)
 	systemConfigHandler := handler.NewSystemConfigHandler(systemConfigService)
+	logsHandler := handler.NewLogsHandler(logsService)
+	taskProgressHandler := handler.NewTaskProgressHandler(downloadService)
 
 	r := gin.Default()
 
@@ -76,8 +87,6 @@ func main() {
 		}
 		c.Next()
 	})
-
-	taskProgressHandler := handler.NewTaskProgressHandler(downloadService)
 
 	api := r.Group("/api/v1")
 	{
@@ -101,6 +110,10 @@ func main() {
 
 		api.GET("/system/configs", systemConfigHandler.GetAllConfigs)
 		api.POST("/system/configs", systemConfigHandler.UpdateConfig)
+
+		api.GET("/system/logs", logsHandler.GetLogs)
+		api.DELETE("/system/logs", logsHandler.ClearLogs)
+		api.GET("/system/logs/stats", logsHandler.GetLogStats)
 	}
 
 	r.GET("/health", func(c *gin.Context) {
