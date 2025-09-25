@@ -24,7 +24,7 @@ RUN go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux go build -o mynest ./backend/main.go
 RUN CGO_ENABLED=0 GOOS=linux go build -o telegram-bot ./plugins/telegram-bot/main.go
 
-FROM golang:1.23-alpine
+FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates tzdata nginx supervisor
 
@@ -62,12 +62,7 @@ aria2:
 download:
   save_path: /downloads
 EOF
-COPY --from=backend-builder /app/go.mod ./go.mod
-COPY --from=backend-builder /app/go.sum ./go.sum
-COPY --from=backend-builder /app/plugins ./plugins
-COPY --from=backend-builder /app/internal ./internal
-
-RUN go mod download
+# 二进制文件已经复制，不需要源码和依赖
 
 COPY --from=frontend-builder /app/dist /usr/share/nginx/html
 
