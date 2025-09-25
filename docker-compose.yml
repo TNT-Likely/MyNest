@@ -57,7 +57,14 @@ services:
         condition: service_healthy
       aria2:
         condition: service_healthy
-    command: sh -c "echo 'Starting MyNest...' && echo 'DB_HOST:' $$DB_HOST && echo 'ARIA2_RPC_URL:' $$ARIA2_RPC_URL && sleep 10 && /usr/bin/supervisord -c /etc/supervisord.conf"
+    command: sh -c "
+      echo 'Starting MyNest...' &&
+      echo 'DB_HOST:' $$DB_HOST &&
+      echo 'ARIA2_RPC_URL:' $$ARIA2_RPC_URL &&
+      sleep 10 &&
+      echo 'Starting Go backend directly...' &&
+      cd /app && ./mynest
+    "
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
