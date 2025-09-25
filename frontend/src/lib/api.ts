@@ -35,13 +35,36 @@ export interface Plugin {
   running?: boolean
 }
 
+export interface TaskQueryParams {
+  page?: number
+  page_size?: number
+  status?: string[]
+  plugin_name?: string
+  category?: string
+  filename?: string
+  hide_success?: boolean
+}
+
+export interface TaskListResponse {
+  success: boolean
+  data: Task[]
+  pagination: {
+    page: number
+    page_size: number
+    total: number
+    total_pages: number
+  }
+}
+
 export const tasksApi = {
-  list: () => api.get<{ success: boolean; tasks: Task[] }>('/tasks'),
+  list: (params?: TaskQueryParams) =>
+    api.get<TaskListResponse>('/tasks', { params }),
   get: (id: number) => api.get<{ success: boolean; task: Task }>(`/tasks/${id}`),
   getProgress: (id: number) => api.get<{ success: boolean; task: Task; progress: TaskProgress }>(`/tasks/${id}/progress`),
   retry: (id: number) => api.post(`/tasks/${id}/retry`),
   delete: (id: number) => api.delete(`/tasks/${id}`),
   pause: (id: number) => api.post(`/tasks/${id}/pause`),
+  clearFailed: () => api.delete<{ success: boolean; message: string; cleared_count: number }>('/tasks/failed'),
 }
 
 export const pluginsApi = {

@@ -152,6 +152,70 @@ func (s *DownloadService) ListTasks(ctx context.Context) ([]*model.DownloadTask,
 	return tasks, nil
 }
 
+// TaskQueryParams 任务查询参数
+type TaskQueryParams struct {
+	Page        int
+	PageSize    int
+	Statuses    []string
+	PluginName  string
+	Category    string
+	Filename    string
+	HideSuccess bool
+}
+
+// TaskQueryResult 任务查询结果
+type TaskQueryResult struct {
+	Tasks []*model.DownloadTask
+	Total int64
+}
+
+func (s *DownloadService) ListTasksWithPagination(ctx context.Context, params TaskQueryParams) (*TaskQueryResult, error) {
+	query := s.db.Model(&model.DownloadTask{})
+
+	// 应用筛选条件
+	if len(params.Statuses) > 0 {
+		query = query.Where("status IN ?", params.Statuses)
+	}
+
+	if params.PluginName != "" {
+		query = query.Where("plugin_name = ?", params.PluginName)
+	}
+
+	if params.Category != "" {
+		query = query.Where("category = ?", params.Category)
+	}
+
+	if params.Filename != "" {
+		query = query.Where("filename ILIKE ?", "%"+params.Filename+"%")
+	}
+
+	// 默认隐藏成功的任务
+	if params.HideSuccess {
+		query = query.Where("status != ?", "completed")
+	}
+
+	// 计算总数
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, err
+	}
+
+	// 应用分页
+	offset := (params.Page - 1) * params.PageSize
+	query = query.Offset(offset).Limit(params.PageSize)
+
+	// 查询数据
+	var tasks []*model.DownloadTask
+	if err := query.Order("created_at DESC").Find(&tasks).Error; err != nil {
+		return nil, err
+	}
+
+	return &TaskQueryResult{
+		Tasks: tasks,
+		Total: total,
+	}, nil
+}
+
 func (s *DownloadService) UpdateTaskStatus(ctx context.Context, id uint, status types.TaskStatus) error {
 	return s.db.Model(&model.DownloadTask{}).Where("id = ?", id).Update("status", string(status)).Error
 }
@@ -330,4 +394,28 @@ func (s *DownloadService) CheckDownloaderStatus(ctx context.Context) (map[string
 	}
 
 	return version, nil
+}
+
+func (s *DownloadService) ClearFailedTasks(ctx context.Context) (int64, error) {
+	// 查询所有失败的任务
+	var failedTasks []*model.DownloadTask
+	if err := s.db.Where("status = ?", "failed").Find(&failedTasks).Error; err != nil {
+		return 0, err
+	}
+
+	// 从 aria2 中移除这些任务（如果有 GID）
+	for _, task := range failedTasks {
+		if task.GID != "" {
+			// 忽略 aria2 移除错误，因为任务可能已经不在 aria2 中了
+			s.downloader.Remove(ctx, task.GID)
+		}
+	}
+
+	// 删除数据库中的失败任务
+	result := s.db.Where("status = ?", "failed").Delete(&model.DownloadTask{})
+	if result.Error != nil {
+		return 0, result.Error
+	}
+
+	return result.RowsAffected, nil
 }

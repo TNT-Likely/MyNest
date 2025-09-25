@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Plus, RefreshCw, MoreVertical } from 'lucide-react'
-import { tasksApi, Task } from '../lib/api'
+import { Plus, RefreshCw, MoreVertical, Filter, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { tasksApi, Task, TaskQueryParams } from '../lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+import { MultiSelect, Option } from '@/components/ui/multi-select'
 import TaskProgress from '@/components/TaskProgress'
 import TaskDetailDialog from '@/components/TaskDetailDialog'
 import DownloaderStatus from '@/components/DownloaderStatus'
@@ -21,6 +26,34 @@ export default function TasksPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
 
+  // 分页和筛选状态
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [filters, setFilters] = useState<TaskQueryParams>({
+    hide_success: true, // 默认隐藏成功任务
+    status: [] // 状态数组
+  })
+  const [showFilters, setShowFilters] = useState(false)
+
+  // 状态选项
+  const statusOptions: Option[] = [
+    { value: 'pending', label: '等待中' },
+    { value: 'downloading', label: '下载中' },
+    { value: 'completed', label: '已归巢' },
+    { value: 'failed', label: '失败' },
+    { value: 'paused', label: '已暂停' },
+  ]
+
+  // 来源插件选项
+  const pluginOptions: Option[] = [
+    { value: 'telegram-bot', label: 'Telegram Bot' },
+    { value: 'web', label: 'Web 直接下载' },
+    { value: 'rss', label: 'RSS 订阅' },
+    { value: 'youtube', label: 'YouTube' },
+  ]
+
   useEffect(() => {
     loadTasks()
 
@@ -29,12 +62,19 @@ export default function TasksPage() {
     }, 3000)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [currentPage, pageSize, filters])
 
   const loadTasks = async () => {
     try {
-      const response = await tasksApi.list()
-      setTasks(response.data.tasks || [])
+      const params = {
+        page: currentPage,
+        page_size: pageSize,
+        ...filters,
+      }
+      const response = await tasksApi.list(params)
+      setTasks(response.data.data || [])
+      setTotal(response.data.pagination.total)
+      setTotalPages(response.data.pagination.total_pages)
     } catch (error) {
       console.error('Failed to load tasks:', error)
     } finally {
@@ -54,10 +94,11 @@ export default function TasksPage() {
       })
       setUrl('')
       setOpen(false)
+      toast.success('✅ 已归巢')
       await loadTasks()
     } catch (error) {
       console.error('Failed to submit download:', error)
-      alert('提交失败，请重试')
+      toast.error('提交失败，请重试')
     } finally {
       setSubmitting(false)
     }
@@ -69,7 +110,7 @@ export default function TasksPage() {
       await loadTasks()
     } catch (error) {
       console.error('Failed to retry task:', error)
-      alert('重试失败')
+      toast.error('重试失败')
     }
   }
 
@@ -79,7 +120,7 @@ export default function TasksPage() {
       await loadTasks()
     } catch (error) {
       console.error('Failed to delete task:', error)
-      alert('删除失败')
+      toast.error('删除失败')
     }
   }
 
@@ -89,8 +130,36 @@ export default function TasksPage() {
       await loadTasks()
     } catch (error) {
       console.error('Failed to pause task:', error)
-      alert('操作失败')
+      toast.error('操作失败')
     }
+  }
+
+  const handleClearFailed = async () => {
+    if (!confirm('确定要清除所有失败的任务吗？此操作不可撤销。')) {
+      return
+    }
+
+    try {
+      const response = await tasksApi.clearFailed()
+      toast.success(response.data.message)
+      await loadTasks()
+      setCurrentPage(1) // 重置到第一页
+    } catch (error) {
+      console.error('Failed to clear failed tasks:', error)
+      toast.error('清理失败')
+    }
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  const handleFilterChange = (key: keyof TaskQueryParams, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value
+    }))
+    setCurrentPage(1) // 筛选时重置到第一页
   }
 
   const getStatusBadge = (status: string) => {
@@ -129,13 +198,22 @@ export default function TasksPage() {
           </Button>
           <DownloaderStatus />
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              新建任务
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
+            <Filter className="mr-2 h-4 w-4" />
+            筛选
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleClearFailed}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            清理失败任务
+          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                新建任务
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <form onSubmit={handleSubmit}>
               <DialogHeader>
@@ -164,7 +242,73 @@ export default function TasksPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      {/* 筛选面板 */}
+      {showFilters && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">筛选条件</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label>状态（可多选）</Label>
+                <MultiSelect
+                  options={statusOptions}
+                  value={filters.status || []}
+                  onValueChange={(value) => handleFilterChange('status', value.length > 0 ? value : undefined)}
+                  placeholder="选择状态..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>来源插件</Label>
+                <Select
+                  value={filters.plugin_name || "all"}
+                  onValueChange={(value) => handleFilterChange('plugin_name', value === "all" ? undefined : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="全部来源" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部来源</SelectItem>
+                    {pluginOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>文件名</Label>
+                <Input
+                  placeholder="搜索文件名"
+                  value={filters.filename || ""}
+                  onChange={(e) => handleFilterChange('filename', e.target.value || undefined)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>显示选项</Label>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="hide_success"
+                    checked={filters.hide_success}
+                    onCheckedChange={(checked) => handleFilterChange('hide_success', checked)}
+                  />
+                  <label htmlFor="hide_success" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    隐藏成功任务
+                  </label>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {tasks.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center">
@@ -220,6 +364,75 @@ export default function TasksPage() {
               ))}
             </TableBody>
           </Table>
+        </div>
+      )}
+
+      {/* 分页控件 */}
+      {total > 0 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            共 {total} 个任务，显示第 {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, total)} 个
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage <= 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              上一页
+            </Button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum: number;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else {
+                  const start = Math.max(1, currentPage - 2);
+                  pageNum = start + i;
+                  if (pageNum > totalPages) {
+                    pageNum = totalPages - (4 - i);
+                  }
+                }
+
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "default" : "outline"}
+                    size="sm"
+                    className="w-8 h-8 p-0"
+                    onClick={() => handlePageChange(pageNum)}
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+            >
+              下一页
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+
+            <Select value={pageSize.toString()} onValueChange={(value) => setPageSize(parseInt(value))}>
+              <SelectTrigger className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       )}
 

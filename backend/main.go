@@ -95,6 +95,7 @@ func main() {
 		api.POST("/tasks/:id/retry", downloadHandler.RetryTask)
 		api.DELETE("/tasks/:id", downloadHandler.DeleteTask)
 		api.POST("/tasks/:id/pause", downloadHandler.PauseTask)
+		api.DELETE("/tasks/failed", downloadHandler.ClearFailedTasks)
 
 		api.GET("/downloader/status", downloadHandler.CheckDownloaderStatus)
 
