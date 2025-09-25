@@ -91,6 +91,8 @@ func (h *MessageHandler) logMessageDebugInfo(msg *tgbotapi.Message) {
 	log.Printf("Is Forward (ForwardFromChat): %t", msg.ForwardFromChat != nil)
 	log.Printf("Is Reply: %t", msg.ReplyToMessage != nil)
 	log.Printf("Message Type: %s", h.identifyMessageType(msg))
+	log.Printf("Has Photo: %t, Has Video: %t, Has Animation: %t, Has Document: %t",
+		msg.Photo != nil, msg.Video != nil, msg.Animation != nil, msg.Document != nil)
 
 	if msg.ForwardFrom != nil {
 		log.Printf("Forwarded from user: %s", msg.ForwardFrom.UserName)
@@ -139,6 +141,8 @@ func (h *MessageHandler) extractAllURLs(msg *tgbotapi.Message) []string {
 		log.Printf("Detected forwarded message (ForwardFrom: %t, ForwardFromChat: %t, ParseForwardedMsg config: %t)",
 			msg.ForwardFrom != nil, msg.ForwardFromChat != nil, h.config.ParseForwardedMsg)
 		log.Printf("Forwarded message - Text: '%s', Caption: '%s'", msg.Text, msg.Caption)
+		log.Printf("Forwarded message media - Photo: %t, Video: %t, Animation: %t",
+			msg.Photo != nil, msg.Video != nil, msg.Animation != nil)
 		if h.config.ParseForwardedMsg {
 			log.Printf("Processing forwarded message content...")
 		} else {
@@ -151,20 +155,54 @@ func (h *MessageHandler) extractAllURLs(msg *tgbotapi.Message) []string {
 		urls = append(urls, h.extractReplyURLs(msg.ReplyToMessage)...)
 	}
 
-	// 如果开启了媒体下载且是图片消息但没有找到链接，尝试获取图片文件链接
-	if len(urls) == 0 && msg.Photo != nil && len(msg.Photo) > 0 {
-		log.Printf("Photo message detected. DownloadMedia config: %t", h.config.DownloadMedia)
-		if h.config.DownloadMedia {
-			log.Printf("Attempting to get photo download URL...")
+	// 如果开启了媒体下载，尝试获取媒体文件链接
+	// 只下载图片、视频、GIF类型的媒体文件
+	if h.config.DownloadMedia {
+		log.Printf("Checking for visual media files (photos, videos, animations). DownloadMedia config: %t, existing URLs: %d", h.config.DownloadMedia, len(urls))
+
+		// 处理图片
+		if len(msg.Photo) > 0 {
+			log.Printf("Photo message detected, attempting to get download URL...")
 			if mediaURL := h.getPhotoURL(msg.Photo); mediaURL != "" {
-				log.Printf("Photo download URL obtained: %s", "***URL_MASKED***")
+				log.Printf("Photo download URL obtained")
 				urls = append(urls, mediaURL)
-			} else {
-				log.Printf("Failed to get photo download URL")
 			}
-		} else {
-			log.Printf("Media download is disabled, skipping photo download")
 		}
+
+		// 处理视频
+		if msg.Video != nil {
+			log.Printf("Video message detected, attempting to get download URL...")
+			if mediaURL := h.getVideoURL(msg.Video); mediaURL != "" {
+				log.Printf("Video download URL obtained")
+				urls = append(urls, mediaURL)
+			}
+		}
+
+		// 处理动画/GIF
+		if msg.Animation != nil {
+			log.Printf("Animation/GIF message detected, attempting to get download URL...")
+			if mediaURL := h.getAnimationURL(msg.Animation); mediaURL != "" {
+				log.Printf("Animation download URL obtained")
+				urls = append(urls, mediaURL)
+			}
+		}
+
+		// 跳过其他类型的媒体文件（文档、音频、语音等）
+		if msg.Document != nil {
+			log.Printf("Document message detected, but skipping (only download visual media)")
+		}
+		if msg.Audio != nil {
+			log.Printf("Audio message detected, but skipping (only download visual media)")
+		}
+		if msg.Voice != nil {
+			log.Printf("Voice message detected, but skipping (only download visual media)")
+		}
+
+		if len(urls) == 0 {
+			log.Printf("No visual media files found or media download failed")
+		}
+	} else {
+		log.Printf("Media download is disabled, skipping media download")
 	}
 
 	// 去重
@@ -265,6 +303,51 @@ func (h *MessageHandler) getPhotoURL(photos []tgbotapi.PhotoSize) string {
 	// 构建文件下载链接（注意：这里暴露了 bot token，在生产环境中需要更安全的方式）
 	fileURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", h.config.BotToken, file.FilePath)
 	log.Printf("Photo download URL generated (token masked for security)")
+	return fileURL
+}
+
+// getVideoURL 获取视频的下载URL
+func (h *MessageHandler) getVideoURL(video *tgbotapi.Video) string {
+	if video == nil {
+		return ""
+	}
+
+	log.Printf("Found video message, file ID: %s, duration: %ds, size: %d bytes", video.FileID, video.Duration, video.FileSize)
+
+	// 获取文件信息
+	fileConfig := tgbotapi.FileConfig{FileID: video.FileID}
+	file, err := h.bot.GetFile(fileConfig)
+	if err != nil {
+		log.Printf("Failed to get video file info: %v", err)
+		return ""
+	}
+
+	// 构建文件下载链接
+	fileURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", h.config.BotToken, file.FilePath)
+	log.Printf("Video download URL generated (token masked for security)")
+	return fileURL
+}
+
+
+// getAnimationURL 获取动画/GIF的下载URL
+func (h *MessageHandler) getAnimationURL(animation *tgbotapi.Animation) string {
+	if animation == nil {
+		return ""
+	}
+
+	log.Printf("Found animation message, file ID: %s, duration: %ds, size: %d bytes", animation.FileID, animation.Duration, animation.FileSize)
+
+	// 获取文件信息
+	fileConfig := tgbotapi.FileConfig{FileID: animation.FileID}
+	file, err := h.bot.GetFile(fileConfig)
+	if err != nil {
+		log.Printf("Failed to get animation file info: %v", err)
+		return ""
+	}
+
+	// 构建文件下载链接
+	fileURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", h.config.BotToken, file.FilePath)
+	log.Printf("Animation download URL generated (token masked for security)")
 	return fileURL
 }
 
