@@ -47,4 +47,5 @@ frontend/.vite/
 logs/
 
 .docs
+.claude
 CLAUDE.md
