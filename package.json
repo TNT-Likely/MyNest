@@ -1,0 +1,13 @@
+{
+  "name": "mynest-commit-agent",
+  "version": "1.0.0",
+  "description": "MyNest 项目专属 Git Commit Agent",
+  "main": ".claude/commit-agent.js",
+  "scripts": {
+    "commit": "node .claude/commit-agent.js",
+    "c": "node .claude/commit-agent.js"
+  },
+  "keywords": ["git", "commit", "mynest", "automation"],
+  "author": "MyNest Team",
+  "license": "MIT"
+}

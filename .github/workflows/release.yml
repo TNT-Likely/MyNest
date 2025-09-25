@@ -3,135 +3,180 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (semver, e.g. 0.0.1)'
+        required: true
+      prerelease:
+        description: 'Mark as prerelease'
+        required: false
+        default: 'false'
 
-env:
-  REGISTRY: docker.io
-  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/mynest
+permissions:
+  contents: read
 
 jobs:
-  build-and-push:
+  build:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: mynest-build-${{ github.workflow }}-${{ github.ref || github.run_id }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          pnpm build
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Build backend
+        run: |
+          go mod download
+          CGO_ENABLED=0 GOOS=linux go build -o mynest ./backend/main.go
+
+  release:
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: write
-
+    concurrency:
+      group: mynest-release-${{ github.workflow }}-${{ github.ref || github.run_id }}
+      cancel-in-progress: true
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          fetch-tags: true
 
-      - name: Ensure tags are fetched
+      - name: Determine version and base tag
+        id: vars
+        shell: bash
         run: |
-          git fetch --tags --force || true
+          INPUT_VERSION="${{ github.event.inputs.version }}"
+          if [[ -n "$INPUT_VERSION" ]]; then
+            VERSION="$INPUT_VERSION"
+          else
+            if [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
+              TAG_REF="${GITHUB_REF##*/}"
+              VERSION="${TAG_REF#v}"
+            else
+              VERSION="0.0.1"
+            fi
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          PREV_TAG=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo '')
+          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
 
-      - name: Debug secrets (safe)
+      - name: Generate changelog from non-merge commits
+        id: changelog
+        shell: bash
         run: |
-          echo "Username length: ${#DOCKERHUB_USERNAME}"
-          echo "Token length: ${#DOCKERHUB_TOKEN}"
-          echo "Username starts with: ${DOCKERHUB_USERNAME:0:3}..."
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          set -euo pipefail
+          PREV_TAG="${{ steps.vars.outputs.prev_tag }}"
+          if [[ -n "$PREV_TAG" ]]; then
+            RANGE="$PREV_TAG..HEAD"
+          else
+            RANGE=""
+          fi
+          echo "Collecting commits in range: ${RANGE:-FULL HISTORY}"
+          LOG=$(git log --no-merges --pretty=format:'- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))' $RANGE)
+          echo "log<<EOF" >> $GITHUB_OUTPUT
+          echo "$LOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Log in to Docker Hub
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Extract metadata
-        id: meta
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
-
-      - name: Build and push MyNest All-in-One image
-        uses: docker/build-push-action@v5
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
-          push: true  # 恢复推送功能
+          push: true
+          build-args: |
+            VERSION=${{ steps.vars.outputs.version }}
+            GIT_SHA=${{ github.sha }}
+            GITHUB_REPOSITORY=${{ github.repository }}
           tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Generate release notes
-        id: notes
-        run: |
-          TAG="${{ steps.meta.outputs.version }}"
-          # 获取上一个 tag（不含当前 tag）
-          PREV_TAG=$(git tag --list --sort=-version:refname | grep -v "^v${TAG}$" | head -n1)
-          echo "Current tag: v$TAG"
-          echo "Previous tag: $PREV_TAG"
-
-          # 生成 commit 列表（排除 merge commit）
-          if [ -n "$PREV_TAG" ]; then
-            echo "Generating commit log from $PREV_TAG to HEAD"
-            COMMITS=$(git log --no-merges --pretty=format:"- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))" "$PREV_TAG"..HEAD)
-          else
-            echo "No previous tag found, showing all commits"
-            COMMITS=$(git log --no-merges --pretty=format:"- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))")
-          fi
-
-          cat > RELEASE_NOTES.md <<EOF
-          ## 🚀 Docker Image
-
-          **MyNest All-in-One（前端 + 后端 + 所有插件）:**
-          \`\`\`bash
-          docker pull ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
-          \`\`\`
-
-          ## 📦 快速部署
-
-          \`\`\`bash
-          # 下载配置文件
-          wget https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
-          wget https://raw.githubusercontent.com/${{ github.repository }}/main/.env.example -O .env
-
-          # 编辑配置（修改密码等）
-          nano .env
-
-          # 启动服务
-          docker-compose up -d
-          \`\`\`
-
-          ## 🔗 访问应用
-
-          - Web 界面: http://localhost:3000
-          - 自动代理前后端，无需单独访问后端 API
-          - 健康检查: http://localhost:3000/health
-
-          ## ✨ 架构特点
-
-          - **一个镜像包含所有服务**：Nginx + React 前端 + Go 后端 + 插件
-          - **单端口访问**：只需暴露 3000 端口
-          - **自动代理**：Nginx 处理 \`/api/*\` 到后端的代理
-          - **生产就绪**：包含日志、健康检查、进程管理
-
-          ## 📝 变更记录
-
-          $COMMITS
-
-          ---
-
-          完整文档: https://github.com/${{ github.repository }}/blob/main/README.md
-          EOF
-
-          echo "notes_file=RELEASE_NOTES.md" >> $GITHUB_OUTPUT
+            ${{ secrets.DOCKERHUB_USERNAME }}/mynest:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/mynest:${{ steps.vars.outputs.version }}
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          body_path: ${{ steps.notes.outputs.notes_file }}
+          tag_name: v${{ steps.vars.outputs.version }}
+          name: v${{ steps.vars.outputs.version }}
+          body: |
+            ## 🚀 Docker Image
+
+            **MyNest All-in-One（前端 + 后端 + 所有插件）:**
+            ```bash
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/mynest:${{ steps.vars.outputs.version }}
+            ```
+
+            ## 📦 快速部署
+
+            ```bash
+            # 下载配置文件
+            wget https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
+            wget https://raw.githubusercontent.com/${{ github.repository }}/main/.env.example -O .env
+
+            # 编辑配置（修改密码等）
+            nano .env
+
+            # 启动服务
+            docker-compose up -d
+            ```
+
+            ## 🔗 访问应用
+
+            - Web 界面: http://localhost:3000
+            - 自动代理前后端，无需单独访问后端 API
+            - 健康检查: http://localhost:3000/health
+
+            ## ✨ 架构特点
+
+            - **一个镜像包含所有服务**：Nginx + React 前端 + Go 后端 + 插件
+            - **单端口访问**：只需暴露 3000 端口
+            - **自动代理**：Nginx 处理 `/api/*` 到后端的代理
+            - **生产就绪**：包含日志、健康检查、进程管理
+
+            ## 📝 变更记录
+
+            ${{ steps.changelog.outputs.log }}
+
+            ---
+
+            完整文档: https://github.com/${{ github.repository }}/blob/main/README.md
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
