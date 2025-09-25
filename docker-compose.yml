@@ -27,10 +27,13 @@ services:
       - RPC_SECRET=${ARIA2_SECRET:-mynest123}
       - LISTEN_PORT=6888
       - RPC_PORT=6800
+      - UMASK_SET=022
+      - PUID=1000
+      - PGID=1000
     ports:
-      - "6800:6800"
-      - "6888:6888"
-      - "6888:6888/udp"
+      - "6801:6800"  # 改为 6801 避免端口冲突
+      - "6889:6888"  # 改为 6889 避免端口冲突
+      - "6889:6888/udp"
     volumes:
       - ${DOWNLOAD_DIR:-./downloads}:/downloads
       - aria2_config:/config
@@ -38,11 +41,11 @@ services:
       - mynest
 
   mynest:
-    image: ${DOCKER_USERNAME:-sunxiaoyes}/mynest:${VERSION:-latest}
+    image: ${DOCKER_USERNAME:-sunxiao0721}/mynest:${VERSION:-latest}
     container_name: mynest
     restart: unless-stopped
     ports:
-      - "${PORT:-3000}:80"
+      - "${PORT:-3001}:80"
     depends_on:
       postgres:
         condition: service_healthy
