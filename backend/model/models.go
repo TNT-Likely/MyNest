@@ -38,12 +38,3 @@ type DownloadTask struct {
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 }
 
-type SystemLog struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	Level     string    `gorm:"not null;index" json:"level"`     // ERROR, INFO, DEBUG, WARN
-	Category  string    `gorm:"not null;index" json:"category"`  // download, plugin, system
-	Message   string    `gorm:"not null;type:text" json:"message"`
-	Details   string    `gorm:"type:text" json:"details,omitempty"`
-	Source    string    `gorm:"index" json:"source,omitempty"`   // 来源组件
-	CreatedAt time.Time `gorm:"index" json:"created_at"`
-}

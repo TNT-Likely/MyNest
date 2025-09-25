@@ -33,6 +33,9 @@ WORKDIR /app
 COPY --from=backend-builder /app/mynest ./mynest
 COPY --from=backend-builder /app/telegram-bot ./telegram-bot
 
+# 创建日志目录
+RUN mkdir -p ./logs
+
 # 创建Docker环境专用的配置文件
 RUN mkdir -p ./backend && cat > ./backend/config.yaml <<EOF
 server:

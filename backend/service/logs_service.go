@@ -1,31 +1,39 @@
 package service
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 	"time"
-
-	"gorm.io/gorm"
-	"github.com/matrix/mynest/backend/model"
 )
 
 type LogsService struct {
-	db *gorm.DB
+	logDir string
 }
 
-func NewLogsService(db *gorm.DB) *LogsService {
+func NewLogsService(logDir string) *LogsService {
+	// 确保日志目录存在
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		panic(fmt.Sprintf("Failed to create log directory: %v", err))
+	}
+
 	return &LogsService{
-		db: db,
+		logDir: logDir,
 	}
 }
 
 type LogEntry struct {
-	ID        uint      `json:"id"`
-	Level     string    `json:"level"`     // ERROR, INFO, DEBUG, WARN
-	Category  string    `json:"category"`  // download, plugin, system
+	Level     string    `json:"level"`
+	Category  string    `json:"category"`
 	Message   string    `json:"message"`
 	Details   string    `json:"details,omitempty"`
 	Timestamp time.Time `json:"timestamp"`
-	Source    string    `json:"source,omitempty"` // 来源组件
+	Source    string    `json:"source,omitempty"`
 }
 
 type LogsQuery struct {
@@ -35,110 +43,193 @@ type LogsQuery struct {
 }
 
 type LogStats struct {
-	TotalLogs   int64 `json:"total_logs"`
-	ErrorCount  int64 `json:"error_count"`
-	InfoCount   int64 `json:"info_count"`
-	DebugCount  int64 `json:"debug_count"`
-	WarnCount   int64 `json:"warn_count"`
-	Categories  map[string]int64 `json:"categories"`
+	TotalLogs  int64            `json:"total_logs"`
+	ErrorCount int64            `json:"error_count"`
+	InfoCount  int64            `json:"info_count"`
+	DebugCount int64            `json:"debug_count"`
+	WarnCount  int64            `json:"warn_count"`
+	Categories map[string]int64 `json:"categories"`
 }
 
 func (s *LogsService) GetLogs(ctx context.Context, query LogsQuery) ([]LogEntry, error) {
-	// 先检查系统日志表是否存在，不存在则创建
-	if !s.db.Migrator().HasTable(&model.SystemLog{}) {
-		if err := s.db.AutoMigrate(&model.SystemLog{}); err != nil {
-			return nil, err
+	logFile := filepath.Join(s.logDir, "app.log")
+
+	file, err := os.Open(logFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []LogEntry{}, nil
 		}
+		return nil, err
+	}
+	defer file.Close()
+
+	var logs []LogEntry
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+
+		var entry LogEntry
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			// 如果不是JSON格式，跳过
+			continue
+		}
+
+		// 应用过滤条件
+		if query.Level != "all" && entry.Level != query.Level {
+			continue
+		}
+		if query.Category != "all" && entry.Category != query.Category {
+			continue
+		}
+
+		logs = append(logs, entry)
 	}
 
-	dbQuery := s.db.Model(&model.SystemLog{})
-
-	// 应用筛选条件
-	if query.Level != "all" {
-		dbQuery = dbQuery.Where("level = ?", query.Level)
-	}
-
-	if query.Category != "all" {
-		dbQuery = dbQuery.Where("category = ?", query.Category)
-	}
-
-	// 按时间倒序排列，获取最新的日志
-	dbQuery = dbQuery.Order("created_at DESC").Limit(query.Lines)
-
-	var systemLogs []model.SystemLog
-	if err := dbQuery.Find(&systemLogs).Error; err != nil {
+	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
 
-	// 转换为响应格式
-	logs := make([]LogEntry, len(systemLogs))
-	for i, log := range systemLogs {
-		logs[i] = LogEntry{
-			ID:        log.ID,
-			Level:     log.Level,
-			Category:  log.Category,
-			Message:   log.Message,
-			Details:   log.Details,
-			Timestamp: log.CreatedAt,
-			Source:    log.Source,
-		}
+	// 按时间倒序排序
+	sort.Slice(logs, func(i, j int) bool {
+		return logs[i].Timestamp.After(logs[j].Timestamp)
+	})
+
+	// 限制返回数量
+	if query.Lines > 0 && len(logs) > query.Lines {
+		logs = logs[:query.Lines]
 	}
 
 	return logs, nil
 }
 
 func (s *LogsService) ClearLogs(ctx context.Context, category string) error {
-	query := s.db.Model(&model.SystemLog{})
+	logFile := filepath.Join(s.logDir, "app.log")
 
-	if category != "all" {
-		query = query.Where("category = ?", category)
+	if category == "all" {
+		// 清空整个日志文件
+		return os.Truncate(logFile, 0)
 	}
 
-	return query.Delete(&model.SystemLog{}).Error
+	// 读取现有日志，过滤掉指定分类的日志
+	file, err := os.Open(logFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer file.Close()
+
+	var remainingLogs []string
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+
+		var entry LogEntry
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			// 保留非JSON格式的行
+			remainingLogs = append(remainingLogs, line)
+			continue
+		}
+
+		// 保留不是指定分类的日志
+		if entry.Category != category {
+			remainingLogs = append(remainingLogs, line)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	// 重写文件
+	return os.WriteFile(logFile, []byte(strings.Join(remainingLogs, "\n")+"\n"), 0644)
 }
 
 func (s *LogsService) GetLogStats(ctx context.Context) (*LogStats, error) {
-	var stats LogStats
-
-	// 总数统计
-	if err := s.db.Model(&model.SystemLog{}).Count(&stats.TotalLogs).Error; err != nil {
+	logs, err := s.GetLogs(ctx, LogsQuery{Level: "all", Category: "all", Lines: 0})
+	if err != nil {
 		return nil, err
 	}
 
-	// 各级别统计
-	s.db.Model(&model.SystemLog{}).Where("level = ?", "ERROR").Count(&stats.ErrorCount)
-	s.db.Model(&model.SystemLog{}).Where("level = ?", "INFO").Count(&stats.InfoCount)
-	s.db.Model(&model.SystemLog{}).Where("level = ?", "DEBUG").Count(&stats.DebugCount)
-	s.db.Model(&model.SystemLog{}).Where("level = ?", "WARN").Count(&stats.WarnCount)
-
-	// 分类统计
-	var categoryStats []struct {
-		Category string
-		Count    int64
-	}
-	s.db.Model(&model.SystemLog{}).
-		Select("category, count(*) as count").
-		Group("category").
-		Find(&categoryStats)
-
-	stats.Categories = make(map[string]int64)
-	for _, cat := range categoryStats {
-		stats.Categories[cat.Category] = cat.Count
+	stats := &LogStats{
+		Categories: make(map[string]int64),
 	}
 
-	return &stats, nil
+	stats.TotalLogs = int64(len(logs))
+
+	for _, log := range logs {
+		// 统计级别
+		switch log.Level {
+		case "ERROR":
+			stats.ErrorCount++
+		case "INFO":
+			stats.InfoCount++
+		case "DEBUG":
+			stats.DebugCount++
+		case "WARN":
+			stats.WarnCount++
+		}
+
+		// 统计分类
+		stats.Categories[log.Category]++
+	}
+
+	return stats, nil
 }
 
 // AddLog 添加日志记录（供内部服务调用）
 func (s *LogsService) AddLog(ctx context.Context, level, category, message, details, source string) error {
-	log := &model.SystemLog{
+	entry := LogEntry{
 		Level:     level,
 		Category:  category,
 		Message:   message,
 		Details:   details,
 		Source:    source,
-		CreatedAt: time.Now(),
+		Timestamp: time.Now(),
 	}
 
-	return s.db.Create(log).Error
+	// 直接写入JSON格式到文件
+	logFile := filepath.Join(s.logDir, "app.log")
+	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	jsonData, err := json.Marshal(entry)
+	if err != nil {
+		return err
+	}
+
+	_, err = file.Write(append(jsonData, '\n'))
+	return err
+}
+
+// Info 记录INFO级别日志
+func (s *LogsService) Info(category, message, source string) {
+	s.AddLog(context.Background(), "INFO", category, message, "", source)
+}
+
+// Error 记录ERROR级别日志
+func (s *LogsService) Error(category, message, details, source string) {
+	s.AddLog(context.Background(), "ERROR", category, message, details, source)
+}
+
+// Debug 记录DEBUG级别日志
+func (s *LogsService) Debug(category, message, source string) {
+	s.AddLog(context.Background(), "DEBUG", category, message, "", source)
+}
+
+// Warn 记录WARN级别日志
+func (s *LogsService) Warn(category, message, source string) {
+	s.AddLog(context.Background(), "WARN", category, message, "", source)
 }

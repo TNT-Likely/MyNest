@@ -64,7 +64,8 @@ func main() {
 	}
 	defer pluginRunner.StopAll()
 
-	logsService := service.NewLogsService(db)
+	// 使用项目根目录下的 logs 目录
+	logsService := service.NewLogsService("./logs")
 	downloadService := service.NewDownloadService(db, aria2Client)
 
 	// 添加一些测试日志

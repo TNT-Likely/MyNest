@@ -9,7 +9,6 @@ import api from '@/lib/api'
 import toast from 'react-hot-toast'
 
 interface LogEntry {
-  id: number
   level: string
   category: string
   message: string
@@ -266,9 +265,9 @@ const SystemLogs: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-2">
-                {logs.map((log) => (
+                {logs.map((log, index) => (
                   <div
-                    key={log.id}
+                    key={index}
                     className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex items-start gap-3">
