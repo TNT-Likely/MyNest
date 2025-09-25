@@ -30,15 +30,21 @@ services:
       - UMASK_SET=022
       - PUID=1000
       - PGID=1000
+      - RPC_LISTEN_ALL=true
     ports:
-      - "6801:6800"  # 改为 6801 避免端口冲突
-      - "6889:6888"  # 改为 6889 避免端口冲突
+      - "6801:6800"  # 外部访问端口
+      - "6889:6888"  # BT 端口
       - "6889:6888/udp"
     volumes:
       - ${DOWNLOAD_DIR:-./downloads}:/downloads
       - aria2_config:/config
     networks:
       - mynest
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:6800/jsonrpc"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   mynest:
     image: ${DOCKER_USERNAME:-sunxiao0721}/mynest:${VERSION:-latest}
@@ -50,7 +56,7 @@ services:
       postgres:
         condition: service_healthy
       aria2:
-        condition: service_started
+        condition: service_healthy
     command: sh -c "sleep 10 && /usr/bin/supervisord -c /etc/supervisord.conf"
     environment:
       DB_HOST: postgres
