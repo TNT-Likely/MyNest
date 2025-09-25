@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Eye, EyeOff } from 'lucide-react'
 import { Plugin } from '@/lib/api'
 
 interface PluginConfigDialogProps {
@@ -30,11 +31,18 @@ const PLUGIN_CONFIGS: Record<string, Array<{ key: string; label: string; type: s
       type: 'switch',
       description: '解析转发时添加的评论中的链接（默认开启）'
     },
+    {
+      key: 'download_media',
+      label: '下载媒体文件',
+      type: 'switch',
+      description: '自动下载图片等媒体文件（默认开启）'
+    },
   ],
 }
 
 export default function PluginConfigDialog({ plugin, open, onOpenChange, onSave }: PluginConfigDialogProps) {
   const [config, setConfig] = useState<Record<string, string>>({})
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({})
 
   // 当对话框打开时，加载已保存的配置
   useEffect(() => {
@@ -111,13 +119,26 @@ export default function PluginConfigDialog({ plugin, open, onOpenChange, onSave 
                     )}
                   </div>
                 ) : (
-                  <Input
-                    id={field.key}
-                    type={field.type}
-                    value={config[field.key] || ''}
-                    onChange={(e) => setConfig({ ...config, [field.key]: e.target.value })}
-                    placeholder={field.label}
-                  />
+                  <div className="relative">
+                    <Input
+                      id={field.key}
+                      type={field.type === 'password' && showPasswords[field.key] ? 'text' : field.type}
+                      value={config[field.key] || ''}
+                      onChange={(e) => setConfig({ ...config, [field.key]: e.target.value })}
+                      placeholder={field.label}
+                    />
+                    {field.type === 'password' && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPasswords(prev => ({ ...prev, [field.key]: !prev[field.key] }))}
+                      >
+                        {showPasswords[field.key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
             ))

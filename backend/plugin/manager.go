@@ -224,3 +224,48 @@ func (m *Manager) Close() error {
 
 	return nil
 }
+
+// UpdatePluginConfig 更新插件配置
+func (m *Manager) UpdatePluginConfig(ctx context.Context, name string, config map[string]interface{}) error {
+	configJSON, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	result := m.db.Model(&model.Plugin{}).
+		Where("name = ?", name).
+		Update("config", datatypes.JSON(configJSON))
+
+	if result.Error != nil {
+		return fmt.Errorf("failed to update plugin config: %w", result.Error)
+	}
+
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("plugin %s not found", name)
+	}
+
+	log.Printf("[PluginManager] Updated config for plugin %s", name)
+	return nil
+}
+
+// RestartPlugin 通过 gRPC 重启插件
+func (m *Manager) RestartPlugin(ctx context.Context, name string, config map[string]interface{}) error {
+	m.mu.RLock()
+	client, exists := m.plugins[name]
+	m.mu.RUnlock()
+
+	if !exists || client.Conn == nil {
+		return fmt.Errorf("plugin %s not connected", name)
+	}
+
+	// TODO: 这里需要根据实际的 gRPC 服务定义来实现
+	// 现在先返回成功，实际的 gRPC 调用需要等待插件系统的 proto 定义完成
+	log.Printf("[PluginManager] Restart plugin %s via gRPC (not implemented yet)", name)
+
+	// 实际应该调用类似这样的代码：
+	// pluginService := pb.NewPluginServiceClient(client.Conn)
+	// _, err := pluginService.Restart(ctx, &pb.RestartRequest{Config: config})
+	// return err
+
+	return nil
+}

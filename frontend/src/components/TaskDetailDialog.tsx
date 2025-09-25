@@ -90,6 +90,25 @@ export default function TaskDetailDialog({
             </div>
           )}
 
+          {task.file_path && (
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">保存路径</label>
+              <div className="mt-1 flex items-center gap-2">
+                <code className="flex-1 text-sm bg-muted p-2 rounded break-all">
+                  {task.file_path}
+                </code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copyToClipboard(task.file_path || '')}
+                  title="复制文件路径"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
           {task.plugin_name && (
             <div>
               <label className="text-sm font-medium text-muted-foreground">来源</label>

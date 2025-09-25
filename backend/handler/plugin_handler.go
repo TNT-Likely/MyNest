@@ -111,6 +111,32 @@ func (h *PluginHandler) StopPlugin(c *gin.Context) {
 	})
 }
 
+func (h *PluginHandler) RestartPlugin(c *gin.Context) {
+	name := c.Param("name")
+
+	var req struct {
+		Config map[string]interface{} `json:"config"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		// 如果没有提供配置，使用现有配置重启
+		if err := h.service.RestartPlugin(c.Request.Context(), name, nil); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	} else {
+		// 使用新配置重启
+		if err := h.service.RestartPlugin(c.Request.Context(), name, req.Config); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "插件已重启",
+	})
+}
+
 func (h *PluginHandler) GetPluginLogs(c *gin.Context) {
 	name := c.Param("name")
 	lines := 100 // 默认100行

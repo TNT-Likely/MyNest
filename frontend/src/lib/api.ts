@@ -8,6 +8,7 @@ export interface Task {
   id: number
   url: string
   filename: string
+  file_path?: string
   status: string
   plugin_name: string
   category: string
@@ -78,6 +79,8 @@ export const pluginsApi = {
   disable: (name: string) => api.post(`/plugins/${name}/disable`),
   start: (name: string) => api.post(`/plugins/${name}/start`),
   stop: (name: string) => api.post(`/plugins/${name}/stop`),
+  restart: (name: string, config?: Record<string, any>) =>
+    api.post(`/plugins/${name}/restart`, { config }),
 }
 
 export default api

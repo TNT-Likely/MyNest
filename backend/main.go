@@ -125,6 +125,7 @@ func main() {
 		api.POST("/plugins/:name/disable", pluginHandler.DisablePlugin)
 		api.POST("/plugins/:name/start", pluginHandler.StartPlugin)
 		api.POST("/plugins/:name/stop", pluginHandler.StopPlugin)
+		api.POST("/plugins/:name/restart", pluginHandler.RestartPlugin)
 		api.GET("/plugins/:name/logs", pluginHandler.GetPluginLogs)
 
 		api.POST("/download", downloadHandler.SubmitDownload)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"time"
 
 	"github.com/matrix/mynest/backend/model"
 	"github.com/matrix/mynest/backend/plugin"
@@ -107,6 +108,46 @@ func (s *PluginService) StartPlugin(ctx context.Context, name string) error {
 
 func (s *PluginService) StopPlugin(ctx context.Context, name string) error {
 	return s.runner.StopPlugin(ctx, name)
+}
+
+func (s *PluginService) RestartPlugin(ctx context.Context, name string, newConfig map[string]interface{}) error {
+	log.Printf("[PluginService] 重启插件: %s", name)
+
+	// 通过环境变量判断运行模式
+	runMode := os.Getenv("RUN_MODE")
+	if runMode == "" {
+		runMode = "development"
+	}
+
+	// 如果提供了新配置，先更新配置
+	if newConfig != nil {
+		log.Printf("[PluginService] 更新插件 %s 的配置", name)
+		if err := s.manager.UpdatePluginConfig(ctx, name, newConfig); err != nil {
+			return err
+		}
+	}
+
+	if runMode == "production" || runMode == "release" {
+		// 生产环境：通过 gRPC 调用插件的重启方法
+		log.Printf("[PluginService] 生产环境模式：通过 gRPC 重启插件 %s", name)
+		return s.manager.RestartPlugin(ctx, name, newConfig)
+	} else {
+		// 开发环境：先停止再启动插件进程
+		log.Printf("[PluginService] 开发环境模式：重启插件进程 %s", name)
+
+		// 停止插件
+		if err := s.runner.StopPlugin(ctx, name); err != nil {
+			log.Printf("[PluginService] 停止插件 %s 失败: %v", name, err)
+			// 不返回错误，继续尝试启动
+		}
+
+		// 等待进程完全停止
+		time.Sleep(2 * time.Second)
+		log.Printf("[PluginService] 等待插件 %s 进程清理完成", name)
+
+		// 启动插件
+		return s.runner.StartPlugin(ctx, name)
+	}
 }
 
 func (s *PluginService) GetPluginLogs(name string, lines int) []string {

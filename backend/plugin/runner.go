@@ -127,18 +127,27 @@ func (r *PluginRunner) StartPlugin(ctx context.Context, name string) error {
 
 func (r *PluginRunner) StopPlugin(ctx context.Context, name string) error {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	proc, exists := r.processes[name]
 	if !exists || !proc.Running {
+		r.mu.Unlock()
 		return fmt.Errorf("plugin %s is not running", name)
 	}
 
 	if err := proc.Cmd.Process.Kill(); err != nil {
+		r.mu.Unlock()
 		return fmt.Errorf("failed to kill plugin: %w", err)
 	}
 
 	proc.Running = false
+	cmd := proc.Cmd
+	r.mu.Unlock()
+
+	// 等待进程真正结束
+	go func() {
+		cmd.Wait()
+		log.Printf("Plugin %s process has fully terminated", name)
+	}()
+
 	log.Printf("Plugin %s stopped", name)
 	return nil
 }
@@ -161,9 +170,10 @@ func (r *PluginRunner) buildPluginCommand(name string, config map[string]interfa
 			// Docker 环境：使用编译好的二进制文件
 			cmd = exec.Command("./telegram-bot")
 		} else {
-			// 本地开发环境：使用 go run
-			pluginPath := "plugins/telegram-bot/main.go"
-			cmd = exec.Command("go", "run", pluginPath)
+			// 本地开发环境：使用 go run . (运行当前目录的包)
+			cmd = exec.Command("go", "run", ".")
+			// 设置工作目录为插件目录
+			cmd.Dir = "plugins/telegram-bot"
 		}
 
 		if botToken, ok := config["bot_token"].(string); ok && botToken != "" {
@@ -191,6 +201,11 @@ func (r *PluginRunner) buildPluginCommand(name string, config map[string]interfa
 		} else {
 			cmd.Env = append(cmd.Env, "PARSE_FORWARDED_COMMENT=true") // 默认开启
 		}
+
+		if downloadMedia, ok := config["download_media"].(string); ok && downloadMedia != "" {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("DOWNLOAD_MEDIA=%s", downloadMedia))
+		}
+		// 不设置默认值，让插件代码自己处理默认逻辑
 
 		return cmd, nil
 

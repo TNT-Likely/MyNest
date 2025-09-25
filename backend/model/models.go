@@ -29,6 +29,7 @@ type DownloadTask struct {
 	ID          uint       `gorm:"primaryKey" json:"id"`
 	URL         string     `gorm:"not null;type:text" json:"url"`
 	Filename    string     `json:"filename"`
+	FilePath    string     `gorm:"type:text" json:"file_path,omitempty"`
 	Status      string     `gorm:"default:'pending'" json:"status"`
 	PluginName  string     `json:"plugin_name"`
 	Category    string     `json:"category"`

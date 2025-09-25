@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import PluginConfigDialog from '@/components/PluginConfigDialog'
 import PluginLogsDialog from '@/components/PluginLogsDialog'
-import { Settings, FileText } from 'lucide-react'
+import { Settings, FileText, RotateCcw } from 'lucide-react'
 
 export default function PluginsPage() {
   const [plugins, setPlugins] = useState<Plugin[]>([])
@@ -73,6 +73,17 @@ export default function PluginsPage() {
     } catch (error) {
       console.error('Failed to stop plugin:', error)
       toast.error('停止失败')
+    }
+  }
+
+  const handleRestart = async (plugin: Plugin) => {
+    try {
+      await pluginsApi.restart(plugin.name)
+      await loadPlugins()
+      toast.success('重启成功')
+    } catch (error) {
+      console.error('Failed to restart plugin:', error)
+      toast.error('重启失败')
     }
   }
 
@@ -168,6 +179,14 @@ export default function PluginsPage() {
                       title="配置"
                     >
                       <Settings className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleRestart(plugin)}
+                      title="重启"
+                    >
+                      <RotateCcw className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="destructive"

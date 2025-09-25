@@ -70,13 +70,25 @@ func (s *TaskSyncService) syncActiveTasks() {
 		switch status.Status {
 		case "active":
 			updates["status"] = string(types.TaskStatusDownloading)
-			if len(status.Files) > 0 && task.Filename == "" {
-				updates["filename"] = status.Files[0].Path
+			if len(status.Files) > 0 {
+				// 更新文件路径
+				updates["file_path"] = status.Files[0].Path
+				// 如果还没有设置文件名，也同时设置
+				if task.Filename == "" {
+					updates["filename"] = status.Files[0].Path
+				}
 			}
 		case "complete":
 			updates["status"] = string(types.TaskStatusCompleted)
 			now := time.Now()
 			updates["completed_at"] = &now
+			// 设置文件的完整路径
+			if len(status.Files) > 0 {
+				updates["file_path"] = status.Files[0].Path
+				if task.Filename == "" {
+					updates["filename"] = status.Files[0].Path
+				}
+			}
 		case "error", "removed":
 			updates["status"] = string(types.TaskStatusFailed)
 			if status.ErrorMessage != "" {
