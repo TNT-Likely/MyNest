@@ -98,6 +98,10 @@ func (s *DownloadService) SubmitDownload(ctx context.Context, req types.Download
 				log.Printf("[Download] Failed to create directory %s: %v", fullPath, err)
 			} else {
 				log.Printf("[Download] Created directory: %s", fullPath)
+				// 确保 aria2 容器可以写入
+				if err := os.Chmod(fullPath, 0755); err != nil {
+					log.Printf("[Download] Failed to change directory permissions: %v", err)
+				}
 			}
 			options["dir"] = fullPath
 			log.Printf("[Download] Using dir mode: %s", fullPath)
@@ -111,6 +115,10 @@ func (s *DownloadService) SubmitDownload(ctx context.Context, req types.Download
 				log.Printf("[Download] Failed to create directory %s: %v", fullDirPath, err)
 			} else {
 				log.Printf("[Download] Created directory: %s", fullDirPath)
+				// 确保 aria2 容器可以写入
+				if err := os.Chmod(fullDirPath, 0755); err != nil {
+					log.Printf("[Download] Failed to change directory permissions: %v", err)
+				}
 			}
 
 			options["dir"] = fullDirPath

@@ -28,9 +28,15 @@ services:
       - LISTEN_PORT=6888
       - RPC_PORT=6800
       - UMASK_SET=022
-      - PUID=1000
-      - PGID=1000
+      - PUID=0
+      - PGID=0
       - RPC_LISTEN_ALL=true
+      # 代理配置（可选）
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - http_proxy=${HTTP_PROXY:-}
+      - https_proxy=${HTTPS_PROXY:-}
+      - NO_PROXY=${NO_PROXY:-localhost,127.0.0.1}
     ports:
       - "6801:6800"  # 外部访问端口
       - "6889:6888"  # BT 端口
@@ -69,6 +75,12 @@ services:
       ARIA2_RPC_URL: http://aria2:6800/jsonrpc
       ARIA2_RPC_SECRET: ${ARIA2_SECRET:-mynest123}
       ARIA2_DOWNLOAD_DIR: /downloads
+      # 代理配置（可选）
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      http_proxy: ${HTTP_PROXY:-}
+      https_proxy: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,postgres,aria2}
     volumes:
       - ${DOWNLOAD_DIR:-./downloads}:/downloads
       - ${LOG_DIR:-./logs}:/app/logs
