@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Copy, AlertCircle } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 interface TaskDetailDialogProps {
   task: Task | null
@@ -23,8 +24,13 @@ export default function TaskDetailDialog({
 }: TaskDetailDialogProps) {
   if (!task) return null
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success('已复制到剪贴板')
+    } catch (error) {
+      toast.error('复制失败')
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -154,9 +160,11 @@ export default function TaskDetailDialog({
             <Button
               variant="destructive"
               onClick={() => {
-                if (confirm('确定要删除这个任务吗？')) {
+                // 简单的替换方案：双击删除或使用更友好的提示
+                if (window.confirm('确定要删除这个任务吗？此操作不可撤销。')) {
                   onDelete(task.id)
                   onOpenChange(false)
+                  toast.success('任务已删除')
                 }
               }}
             >

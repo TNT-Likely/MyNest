@@ -42,7 +42,6 @@ export interface TaskQueryParams {
   plugin_name?: string
   category?: string
   filename?: string
-  hide_success?: boolean
 }
 
 export interface TaskListResponse {
@@ -58,7 +57,12 @@ export interface TaskListResponse {
 
 export const tasksApi = {
   list: (params?: TaskQueryParams) =>
-    api.get<TaskListResponse>('/tasks', { params }),
+    api.get<TaskListResponse>('/tasks', {
+      params,
+      paramsSerializer: {
+        indexes: null // 让数组参数变成 status=a&status=b 而不是 status[0]=a&status[1]=b
+      }
+    }),
   get: (id: number) => api.get<{ success: boolean; task: Task }>(`/tasks/${id}`),
   getProgress: (id: number) => api.get<{ success: boolean; task: Task; progress: TaskProgress }>(`/tasks/${id}/progress`),
   retry: (id: number) => api.post(`/tasks/${id}/retry`),

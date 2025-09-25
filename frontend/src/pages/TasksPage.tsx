@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, RefreshCw, MoreVertical, Filter, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, RefreshCw, MoreVertical, Filter, Trash2, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { tasksApi, Task, TaskQueryParams } from '../lib/api'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { MultiSelect, Option } from '@/components/ui/multi-select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import TaskProgress from '@/components/TaskProgress'
 import TaskDetailDialog from '@/components/TaskDetailDialog'
 import DownloaderStatus from '@/components/DownloaderStatus'
@@ -26,15 +27,18 @@ export default function TasksPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
 
+  // Tab 状态
+  const [activeTab, setActiveTab] = useState('in-progress')
+
   // 分页和筛选状态
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [filters, setFilters] = useState<TaskQueryParams>({
-    hide_success: true, // 默认隐藏成功任务
     status: [] // 状态数组
   })
+  const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
 
   // 状态选项
@@ -62,15 +66,26 @@ export default function TasksPage() {
     }, 3000)
 
     return () => clearInterval(interval)
-  }, [currentPage, pageSize, filters])
+  }, [currentPage, pageSize, filters, activeTab, searchQuery])
 
   const loadTasks = async () => {
     try {
+      // 根据当前 tab 设置状态过滤
+      const tabFilters = activeTab === 'in-progress'
+        ? ['pending', 'downloading', 'paused']
+        : activeTab === 'completed'
+        ? ['completed']
+        : ['failed']
+
       const params = {
         page: currentPage,
         page_size: pageSize,
-        ...filters,
+        status: tabFilters, // 始终使用 tab 过滤
+        plugin_name: filters.plugin_name,
+        category: filters.category,
+        filename: searchQuery || filters.filename,
       }
+      console.log('[DEBUG] Frontend sending params:', params)
       const response = await tasksApi.list(params)
       setTasks(response.data.data || [])
       setTotal(response.data.pagination.total)
@@ -80,6 +95,13 @@ export default function TasksPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value)
+    setCurrentPage(1) // 重置到第一页
+    setSearchQuery('') // 清空搜索
+    setFilters({ status: [] }) // 清空过滤器
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -199,14 +221,6 @@ export default function TasksPage() {
           <DownloaderStatus />
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
-            <Filter className="mr-2 h-4 w-4" />
-            筛选
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleClearFailed}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            清理失败任务
-          </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -245,14 +259,43 @@ export default function TasksPage() {
         </div>
       </div>
 
-      {/* 筛选面板 */}
-      {showFilters && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">筛选条件</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="in-progress">进行中</TabsTrigger>
+            <TabsTrigger value="completed">已完成</TabsTrigger>
+            <TabsTrigger value="failed">失败</TabsTrigger>
+          </TabsList>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Input
+                placeholder="搜索任务..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-64"
+              />
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
+              <Filter className="mr-2 h-4 w-4" />
+              筛选
+            </Button>
+            {activeTab === 'completed' && (
+              <Button variant="outline" size="sm" onClick={handleClearFailed}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                清理失败任务
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* 筛选面板 */}
+        {showFilters && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">筛选条件</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>状态（可多选）</Label>
                 <MultiSelect
@@ -292,54 +335,173 @@ export default function TasksPage() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>显示选项</Label>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="hide_success"
-                    checked={filters.hide_success}
-                    onCheckedChange={(checked) => handleFilterChange('hide_success', checked)}
-                  />
-                  <label htmlFor="hide_success" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    隐藏成功任务
-                  </label>
-                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )}
 
-      {tasks.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center">
-          <p className="text-muted-foreground">暂无下载任务</p>
-        </div>
-      ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>文件名</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead>来源</TableHead>
-                <TableHead>创建时间</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tasks.map((task) => (
-                <TableRow key={task.id}>
-                  <TableCell className="font-medium">
-                    <div className="space-y-1">
-                      <div className="truncate max-w-md cursor-pointer hover:text-primary"
-                           onClick={() => {
-                             setSelectedTask(task)
-                             setDetailOpen(true)
-                           }}>
-                        {task.filename || task.url.substring(0, 50) + '...'}
-                      </div>
-                      <TaskProgress taskId={task.id} status={task.status} />
+        <TabsContent value="in-progress" className="space-y-4">
+          {tasks.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-12 text-center">
+              <p className="text-muted-foreground">暂无进行中的任务</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>文件名</TableHead>
+                      <TableHead>状态</TableHead>
+                      <TableHead>来源</TableHead>
+                      <TableHead>创建时间</TableHead>
+                      <TableHead className="w-[50px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tasks.map((task) => (
+                      <TableRow key={task.id}>
+                        <TableCell className="font-medium">
+                          <div className="space-y-1">
+                            <div className="truncate max-w-md cursor-pointer hover:text-primary"
+                                 onClick={() => {
+                                   setSelectedTask(task)
+                                   setDetailOpen(true)
+                                 }}>
+                              {task.filename || task.url.substring(0, 50) + '...'}
+                            </div>
+                            <TaskProgress taskId={task.id} status={task.status} />
+                          </div>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(task.status)}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {task.plugin_name || '-'}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {new Date(task.created_at).toLocaleString('zh-CN')}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedTask(task)
+                              setDetailOpen(true)
+                            }}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* 分页控件 */}
+              {total > 0 && (
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    共 {total} 个任务，显示第 {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, total)} 个
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage <= 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      上一页
+                    </Button>
+
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum: number;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else {
+                          const start = Math.max(1, currentPage - 2);
+                          pageNum = start + i;
+                          if (pageNum > totalPages) {
+                            pageNum = totalPages - (4 - i);
+                          }
+                        }
+
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={currentPage === pageNum ? "default" : "outline"}
+                            size="sm"
+                            className="w-8 h-8 p-0"
+                            onClick={() => handlePageChange(pageNum)}
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      })}
                     </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage >= totalPages}
+                    >
+                      下一页
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+
+                    <Select value={pageSize.toString()} onValueChange={(value) => setPageSize(parseInt(value))}>
+                      <SelectTrigger className="w-20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="100">100</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="completed" className="space-y-4">
+          {tasks.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-12 text-center">
+              <p className="text-muted-foreground">暂无已完成的任务</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>文件名</TableHead>
+                      <TableHead>状态</TableHead>
+                      <TableHead>来源</TableHead>
+                      <TableHead>创建时间</TableHead>
+                      <TableHead className="w-[50px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tasks.map((task) => (
+                      <TableRow key={task.id}>
+                        <TableCell className="font-medium">
+                          <div className="space-y-1">
+                            <div className="truncate max-w-md cursor-pointer hover:text-primary"
+                                 onClick={() => {
+                                   setSelectedTask(task)
+                                   setDetailOpen(true)
+                                 }}>
+                              {task.filename || task.url.substring(0, 50) + '...'}
+                            </div>
+                            {/* 已完成任务不显示进度条 */}
+                          </div>
                   </TableCell>
                   <TableCell>{getStatusBadge(task.status)}</TableCell>
                   <TableCell className="text-muted-foreground">
@@ -364,77 +526,226 @@ export default function TasksPage() {
               ))}
             </TableBody>
           </Table>
-        </div>
-      )}
+              </div>
 
-      {/* 分页控件 */}
-      {total > 0 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            共 {total} 个任务，显示第 {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, total)} 个
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage <= 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              上一页
-            </Button>
+              {/* 分页控件 */}
+              {total > 0 && (
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    共 {total} 个任务，显示第 {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, total)} 个
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage <= 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      上一页
+                    </Button>
 
-            <div className="flex items-center gap-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum: number;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else {
-                  const start = Math.max(1, currentPage - 2);
-                  pageNum = start + i;
-                  if (pageNum > totalPages) {
-                    pageNum = totalPages - (4 - i);
-                  }
-                }
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum: number;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else {
+                          const start = Math.max(1, currentPage - 2);
+                          pageNum = start + i;
+                          if (pageNum > totalPages) {
+                            pageNum = totalPages - (4 - i);
+                          }
+                        }
 
-                return (
-                  <Button
-                    key={pageNum}
-                    variant={currentPage === pageNum ? "default" : "outline"}
-                    size="sm"
-                    className="w-8 h-8 p-0"
-                    onClick={() => handlePageChange(pageNum)}
-                  >
-                    {pageNum}
-                  </Button>
-                );
-              })}
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={currentPage === pageNum ? "default" : "outline"}
+                            size="sm"
+                            className="w-8 h-8 p-0"
+                            onClick={() => handlePageChange(pageNum)}
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      })}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage >= totalPages}
+                    >
+                      下一页
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+
+                    <Select value={pageSize.toString()} onValueChange={(value) => setPageSize(parseInt(value))}>
+                      <SelectTrigger className="w-20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="100">100</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
             </div>
+          )}
+        </TabsContent>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage >= totalPages}
-            >
-              下一页
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+        <TabsContent value="failed" className="space-y-4">
+          {tasks.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-12 text-center">
+              <p className="text-muted-foreground">暂无失败的任务</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>文件名</TableHead>
+                      <TableHead>状态</TableHead>
+                      <TableHead>错误信息</TableHead>
+                      <TableHead>来源</TableHead>
+                      <TableHead>创建时间</TableHead>
+                      <TableHead className="w-[100px]">操作</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tasks.map((task) => (
+                      <TableRow key={task.id}>
+                        <TableCell className="font-medium">
+                          <div className="space-y-1">
+                            <div className="truncate max-w-md cursor-pointer hover:text-primary"
+                                 onClick={() => {
+                                   setSelectedTask(task)
+                                   setDetailOpen(true)
+                                 }}>
+                              {task.filename || task.url.substring(0, 50) + '...'}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(task.status)}</TableCell>
+                        <TableCell className="text-destructive text-sm">
+                          <div className="truncate max-w-xs" title={task.error_msg}>
+                            {task.error_msg || '未知错误'}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {task.plugin_name || '-'}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {new Date(task.created_at).toLocaleString('zh-CN')}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRetry(task.id)}
+                              title="重试"
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedTask(task)
+                                setDetailOpen(true)
+                              }}
+                              title="详情"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
-            <Select value={pageSize.toString()} onValueChange={(value) => setPageSize(parseInt(value))}>
-              <SelectTrigger className="w-20">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="20">20</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-                <SelectItem value="100">100</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      )}
+              {/* 分页控件 */}
+              {total > 0 && (
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    共 {total} 个任务，显示第 {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, total)} 个
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage <= 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      上一页
+                    </Button>
+
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum: number;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else {
+                          const start = Math.max(1, currentPage - 2);
+                          pageNum = start + i;
+                          if (pageNum > totalPages) {
+                            pageNum = totalPages - (4 - i);
+                          }
+                        }
+
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={currentPage === pageNum ? "default" : "outline"}
+                            size="sm"
+                            className="w-8 h-8 p-0"
+                            onClick={() => handlePageChange(pageNum)}
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      })}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage >= totalPages}
+                    >
+                      下一页
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+
+                    <Select value={pageSize.toString()} onValueChange={(value) => setPageSize(parseInt(value))}>
+                      <SelectTrigger className="w-20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="100">100</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <TaskDetailDialog
         task={selectedTask}

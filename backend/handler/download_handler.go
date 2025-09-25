@@ -61,13 +61,26 @@ func (h *DownloadHandler) ListTasks(c *gin.Context) {
 		PluginName string   `form:"plugin_name"`
 		Category   string   `form:"category"`
 		Filename   string   `form:"filename"`
-		HideSuccess bool     `form:"hide_success,default=true"` // 默认隐藏成功的任务
 	}
 
 	if err := c.ShouldBindQuery(&params); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 手动处理 status 数组参数，支持两种格式：status=a&status=b 和 status[]=a&status[]=b
+	statusParams := c.QueryArray("status")
+	if len(statusParams) == 0 {
+		// 尝试解析 status[] 格式
+		statusParams = c.QueryArray("status[]")
+	}
+	if len(statusParams) > 0 {
+		params.Statuses = statusParams
+	}
+
+	// Debug: 打印接收到的参数
+	fmt.Printf("[DEBUG] ListTasks params: Page=%d, PageSize=%d, Statuses=%v, PluginName=%s, Category=%s, Filename=%s\n",
+		params.Page, params.PageSize, params.Statuses, params.PluginName, params.Category, params.Filename)
 
 	// 限制页面大小
 	if params.PageSize > 100 {
@@ -87,7 +100,6 @@ func (h *DownloadHandler) ListTasks(c *gin.Context) {
 		PluginName: params.PluginName,
 		Category:   params.Category,
 		Filename:   params.Filename,
-		HideSuccess: params.HideSuccess,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

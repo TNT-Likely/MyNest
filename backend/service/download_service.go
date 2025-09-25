@@ -176,7 +176,6 @@ type TaskQueryParams struct {
 	PluginName  string
 	Category    string
 	Filename    string
-	HideSuccess bool
 }
 
 // TaskQueryResult 任务查询结果
@@ -188,8 +187,13 @@ type TaskQueryResult struct {
 func (s *DownloadService) ListTasksWithPagination(ctx context.Context, params TaskQueryParams) (*TaskQueryResult, error) {
 	query := s.db.Model(&model.DownloadTask{})
 
+	// Debug: 打印查询参数
+	log.Printf("[DEBUG] Service ListTasksWithPagination: Statuses=%v, PluginName=%s, Category=%s, Filename=%s",
+		params.Statuses, params.PluginName, params.Category, params.Filename)
+
 	// 应用筛选条件
 	if len(params.Statuses) > 0 {
+		log.Printf("[DEBUG] Applying status filter: %v", params.Statuses)
 		query = query.Where("status IN ?", params.Statuses)
 	}
 
@@ -205,10 +209,6 @@ func (s *DownloadService) ListTasksWithPagination(ctx context.Context, params Ta
 		query = query.Where("filename ILIKE ?", "%"+params.Filename+"%")
 	}
 
-	// 默认隐藏成功的任务
-	if params.HideSuccess {
-		query = query.Where("status != ?", "completed")
-	}
 
 	// 计算总数
 	var total int64

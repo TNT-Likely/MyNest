@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import toast from 'react-hot-toast'
 import { pluginsApi, Plugin } from '../lib/api'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -51,7 +52,7 @@ export default function PluginsPage() {
       await loadPlugins()
     } catch (error) {
       console.error('Failed to save config:', error)
-      alert('配置保存失败')
+      toast.error('配置保存失败')
     }
   }
 
@@ -61,7 +62,7 @@ export default function PluginsPage() {
       await loadPlugins()
     } catch (error) {
       console.error('Failed to start plugin:', error)
-      alert('启动失败')
+      toast.error('启动失败')
     }
   }
 
@@ -71,7 +72,7 @@ export default function PluginsPage() {
       await loadPlugins()
     } catch (error) {
       console.error('Failed to stop plugin:', error)
-      alert('停止失败')
+      toast.error('停止失败')
     }
   }
 
