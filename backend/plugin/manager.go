@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
+	"time"
 
 	"github.com/matrix/mynest/backend/model"
 	"google.golang.org/grpc"
@@ -24,6 +26,8 @@ type PluginClient struct {
 	Endpoint   string
 	Conn       *grpc.ClientConn
 	GRPCClient interface{}
+	LastPing   time.Time
+	Healthy    bool
 }
 
 func NewManager(db *gorm.DB) *Manager {
@@ -126,6 +130,86 @@ func (m *Manager) DisablePlugin(ctx context.Context, name string) error {
 	}
 
 	return nil
+}
+
+// CheckPluginHealth 检查插件健康状态
+func (m *Manager) CheckPluginHealth(name string) bool {
+	m.mu.RLock()
+	client, exists := m.plugins[name]
+	m.mu.RUnlock()
+
+	if !exists {
+		return false
+	}
+
+	if client.Conn == nil {
+		return false
+	}
+
+	// 简单的连接状态检查
+	state := client.Conn.GetState()
+	healthy := state.String() == "READY" || state.String() == "CONNECTING"
+
+	// 更新健康状态
+	m.mu.Lock()
+	client.LastPing = time.Now()
+	client.Healthy = healthy
+	m.mu.Unlock()
+
+	if healthy {
+		log.Printf("Plugin %s is healthy", name)
+	} else {
+		log.Printf("Plugin %s is unhealthy, state: %s", name, state.String())
+	}
+
+	return healthy
+}
+
+// GetPluginStatus 获取插件状态
+func (m *Manager) GetPluginStatus(name string) map[string]interface{} {
+	m.mu.RLock()
+	client, exists := m.plugins[name]
+	m.mu.RUnlock()
+
+	if !exists {
+		return map[string]interface{}{
+			"running": false,
+			"healthy": false,
+			"status":  "not_found",
+		}
+	}
+
+	return map[string]interface{}{
+		"running":   client.Conn != nil,
+		"healthy":   client.Healthy,
+		"last_ping": client.LastPing,
+		"endpoint":  client.Endpoint,
+		"status":    "connected",
+	}
+}
+
+// StartHealthChecker 启动健康检查器
+func (m *Manager) StartHealthChecker() {
+	go func() {
+		ticker := time.NewTicker(30 * time.Second) // 每30秒检查一次
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				m.mu.RLock()
+				plugins := make([]string, 0, len(m.plugins))
+				for name := range m.plugins {
+					plugins = append(plugins, name)
+				}
+				m.mu.RUnlock()
+
+				for _, name := range plugins {
+					m.CheckPluginHealth(name)
+				}
+			}
+		}
+	}()
 }
 
 func (m *Manager) Close() error {

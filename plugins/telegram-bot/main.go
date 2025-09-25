@@ -2,17 +2,22 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"google.golang.org/grpc"
 )
 
+// Config 配置结构
 type Config struct {
 	BotToken              string
 	CoreAPI               string
@@ -21,103 +26,107 @@ type Config struct {
 	ParseForwardedComment bool
 }
 
+// DownloadRequest 下载请求结构
 type DownloadRequest struct {
 	URL        string `json:"url"`
 	PluginName string `json:"plugin"`
 	Category   string `json:"category"`
 }
 
+// TelegramBot 机器人实例
+type TelegramBot struct {
+	bot    *tgbotapi.BotAPI
+	config Config
+	stop   chan bool
+}
+
 var urlRegex = regexp.MustCompile(`(https?://[^\s]+|magnet:\?[^\s]+)`)
 
-func main() {
-	parseForwarded := os.Getenv("PARSE_FORWARDED_MSG")
-	parseComment := os.Getenv("PARSE_FORWARDED_COMMENT")
-	config := Config{
-		BotToken:              os.Getenv("BOT_TOKEN"),
-		CoreAPI:               os.Getenv("CORE_API_URL"),
-		AllowedIDs:            parseAllowedIDs(os.Getenv("ALLOWED_USER_IDS")),
-		ParseForwardedMsg:     parseForwarded == "" || parseForwarded == "true", // 默认开启
-		ParseForwardedComment: parseComment == "" || parseComment == "true",     // 默认开启
-	}
-
-	if config.BotToken == "" {
-		log.Fatal("BOT_TOKEN is required")
-	}
-	if config.CoreAPI == "" {
-		config.CoreAPI = "http://localhost:8080"
-	}
-
+// NewTelegramBot 创建新的电报机器人实例
+func NewTelegramBot(config Config) (*TelegramBot, error) {
 	bot, err := tgbotapi.NewBotAPI(config.BotToken)
 	if err != nil {
-		log.Fatalf("Failed to create bot: %v", err)
+		return nil, err
 	}
 
-	log.Printf("Telegram Bot authorized: %s", bot.Self.UserName)
+	bot.Debug = false
+	log.Printf("Telegram Bot authorized on account %s", bot.Self.UserName)
 
+	return &TelegramBot{
+		bot:    bot,
+		config: config,
+		stop:   make(chan bool),
+	}, nil
+}
+
+// Start 启动机器人
+func (tb *TelegramBot) Start() error {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
-	updates := bot.GetUpdatesChan(u)
+	updates := tb.bot.GetUpdatesChan(u)
+	log.Printf("Telegram Bot started, waiting for messages...")
 
-	for update := range updates {
-		if update.Message == nil {
-			continue
-		}
-
-		log.Printf("Received message from user %d (@%s), Text: '%s', Caption: '%s', Forwarded: %v",
-			update.Message.From.ID,
-			update.Message.From.UserName,
-			update.Message.Text,
-			update.Message.Caption,
-			update.Message.ForwardFrom != nil)
-
-		if len(config.AllowedIDs) > 0 && !isAllowed(update.Message.From.ID, config.AllowedIDs) {
-			log.Printf("User %d not in allowed list, ignoring", update.Message.From.ID)
-			continue
-		}
-
-		urls := extractURLsFromMessage(update.Message, config.ParseForwardedMsg, config.ParseForwardedComment)
-		if len(urls) == 0 {
-			log.Printf("No URLs found in message")
-			sendMessage(bot, update.Message.Chat.ID, "💡 请发送包含链接的消息，支持 HTTP/HTTPS/Magnet 链接")
-			continue
-		}
-
-		log.Printf("Found %d URLs: %v", len(urls), urls)
-
-		for _, url := range urls {
-			// 处理 Telegram 媒体 URL
-			if strings.HasPrefix(url, "telegram:") {
-				fileURL, err := getTelegramFileURL(bot, url)
-				if err != nil {
-					log.Printf("Failed to get Telegram file URL: %v", err)
-					sendMessage(bot, update.Message.Chat.ID, fmt.Sprintf("❌ 获取文件失败: %v", err))
-					continue
-				}
-				url = fileURL
-				log.Printf("Converted to download URL: %s", url)
+	for {
+		select {
+		case <-tb.stop:
+			tb.bot.StopReceivingUpdates()
+			return nil
+		case update := <-updates:
+			if update.Message == nil {
+				continue
 			}
 
-			if err := submitDownload(config.CoreAPI, url); err != nil {
-				log.Printf("Failed to submit download: %v", err)
-				sendMessage(bot, update.Message.Chat.ID, fmt.Sprintf("❌ 归巢失败: %v", err))
+			userID := update.Message.From.ID
+			log.Printf("Received message from user %d: %s", userID, update.Message.Text)
+
+			if len(tb.config.AllowedIDs) > 0 && !isAllowed(userID, tb.config.AllowedIDs) {
+				tb.bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "❌ 你没有权限使用此机器人"))
+				continue
+			}
+
+			var text string
+			if tb.config.ParseForwardedMsg && update.Message.ForwardFrom != nil {
+				text = update.Message.Text
+			} else if tb.config.ParseForwardedComment && update.Message.ReplyToMessage != nil {
+				text = update.Message.Text
 			} else {
-				sendMessage(bot, update.Message.Chat.ID, "✅ 已归巢")
+				text = update.Message.Text
+			}
+
+			urls := extractURLs(text)
+			if len(urls) == 0 {
+				tb.bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "❌ 未找到有效的下载链接"))
+				continue
+			}
+
+			for _, url := range urls {
+				if err := submitDownload(tb.config.CoreAPI, url); err != nil {
+					tb.bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("❌ 下载失败: %v", err)))
+				} else {
+					tb.bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "✅ 已添加到下载队列"))
+				}
 			}
 		}
 	}
 }
 
-func parseAllowedIDs(str string) []int64 {
-	if str == "" {
+// Stop 停止机器人
+func (tb *TelegramBot) Stop() {
+	close(tb.stop)
+}
+
+// 工具函数
+func parseAllowedIDs(idsStr string) []int64 {
+	if idsStr == "" {
 		return nil
 	}
 
+	parts := strings.Split(idsStr, ",")
 	var ids []int64
-	parts := strings.Split(str, ",")
 	for _, part := range parts {
-		var id int64
-		if _, err := fmt.Sscanf(strings.TrimSpace(part), "%d", &id); err == nil {
+		part = strings.TrimSpace(part)
+		if id, err := strconv.ParseInt(part, 10, 64); err == nil {
 			ids = append(ids, id)
 		}
 	}
@@ -137,159 +146,184 @@ func extractURLs(text string) []string {
 	return urlRegex.FindAllString(text, -1)
 }
 
-func extractURLsFromMessage(msg *tgbotapi.Message, parseForwarded bool, parseComment bool) []string {
-	var allText string
-	var textParts []string
-	var urls []string
-
-	// 检查转发消息
-	isForwarded := msg.ForwardFrom != nil || msg.ForwardFromChat != nil
-	if isForwarded {
-		log.Printf("Message is forwarded (ForwardFrom: %v, ForwardFromChat: %v)",
-			msg.ForwardFrom != nil, msg.ForwardFromChat != nil)
-
-		if !parseForwarded {
-			log.Printf("Forwarded message parsing is disabled, skipping")
-			return []string{}
-		}
-	}
-
-	// 从消息文本提取（包含转发评论）
-	if msg.Text != "" {
-		if isForwarded && !parseComment {
-			log.Printf("Forwarded comment parsing is disabled, ignoring text: %s", msg.Text)
-		} else {
-			textParts = append(textParts, msg.Text)
-			if isForwarded {
-				log.Printf("Found message text (may include forwarded comment): %s", msg.Text)
-			} else {
-				log.Printf("Found message text: %s", msg.Text)
-			}
-		}
-	}
-
-	// 如果消息包含 caption（图片、视频等媒体消息的评论）
-	if msg.Caption != "" {
-		if isForwarded && !parseComment {
-			log.Printf("Forwarded comment parsing is disabled, ignoring caption: %s", msg.Caption)
-		} else {
-			textParts = append(textParts, msg.Caption)
-			if isForwarded {
-				log.Printf("Found caption (forwarded message comment): %s", msg.Caption)
-			} else {
-				log.Printf("Found caption: %s", msg.Caption)
-			}
-		}
-	}
-
-	// 检查媒体附件
-	if msg.Video != nil {
-		log.Printf("Found video attachment: FileID=%s, FileSize=%d", msg.Video.FileID, msg.Video.FileSize)
-		urls = append(urls, "telegram:video:"+msg.Video.FileID)
-	}
-	if msg.Photo != nil && len(msg.Photo) > 0 {
-		// 选择最大的照片
-		largestPhoto := msg.Photo[len(msg.Photo)-1]
-		log.Printf("Found photo attachment: FileID=%s, FileSize=%d", largestPhoto.FileID, largestPhoto.FileSize)
-		urls = append(urls, "telegram:photo:"+largestPhoto.FileID)
-	}
-	if msg.Document != nil {
-		log.Printf("Found document attachment: FileID=%s, FileName=%s", msg.Document.FileID, msg.Document.FileName)
-		urls = append(urls, "telegram:document:"+msg.Document.FileID)
-	}
-
-	// 如果有媒体附件，直接返回
-	if len(urls) > 0 {
-		log.Printf("Extracted %d media URLs: %v", len(urls), urls)
-		return urls
-	}
-
-	// 合并所有文本提取 URL
-	allText = strings.Join(textParts, " ")
-	log.Printf("Combined text for URL extraction: %s", allText)
-
-	// 从所有文本中提取 URL
-	urls = extractURLs(allText)
-
-	if len(urls) > 0 {
-		log.Printf("Extracted %d URLs from text: %v", len(urls), urls)
-	} else {
-		log.Printf("No URLs or media found in message")
-	}
-
-	return urls
-}
-
-type DownloadResponse struct {
-	Success bool   `json:"success"`
-	Error   string `json:"error"`
-	Task    struct {
-		ID     int    `json:"id"`
-		Status string `json:"status"`
-	} `json:"task"`
-}
-
-func submitDownload(coreAPI, urlStr string) error {
+func submitDownload(coreAPI, url string) error {
 	req := DownloadRequest{
-		URL:        urlStr,
-		PluginName: "telegram",
+		URL:        url,
+		PluginName: "telegram-bot",
 		Category:   "telegram",
 	}
 
-	data, err := json.Marshal(req)
+	jsonData, err := json.Marshal(req)
 	if err != nil {
 		return err
 	}
 
-	resp, err := http.Post(coreAPI+"/api/v1/download", "application/json", bytes.NewBuffer(data))
+	resp, err := http.Post(coreAPI+"/download", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("服务器错误 (状态码: %d)", resp.StatusCode)
-	}
-
-	var result DownloadResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return fmt.Errorf("解析响应失败: %w", err)
-	}
-
-	if !result.Success || result.Error != "" {
-		return fmt.Errorf("%s", result.Error)
+		return fmt.Errorf("server returned status %d", resp.StatusCode)
 	}
 
 	return nil
 }
 
-func getTelegramFileURL(bot *tgbotapi.BotAPI, telegramURL string) (string, error) {
-	// 解析 telegram:type:fileID
-	parts := strings.Split(telegramURL, ":")
-	if len(parts) != 3 {
-		return "", fmt.Errorf("invalid telegram URL format: %s", telegramURL)
-	}
-
-	fileID := parts[2]
-	fileConfig := tgbotapi.FileConfig{FileID: fileID}
-
-	file, err := bot.GetFile(fileConfig)
-	if err != nil {
-		// 检查是否是文件过大错误
-		if strings.Contains(err.Error(), "file is too big") {
-			return "", fmt.Errorf("文件超过 20MB，Telegram Bot API 无法下载。请将文件上传到网盘后发送下载链接")
-		}
-		return "", fmt.Errorf("获取文件信息失败: %w", err)
-	}
-
-	// 构建下载 URL
-	downloadURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", bot.Token, file.FilePath)
-	return downloadURL, nil
+// gRPC服务相关结构和函数
+type PluginServer struct {
+	bot *TelegramBot
 }
 
-func sendMessage(bot *tgbotapi.BotAPI, chatID int64, text string) {
-	msg := tgbotapi.NewMessage(chatID, text)
-	if _, err := bot.Send(msg); err != nil {
-		log.Printf("Failed to send message: %v", err)
+func (s *PluginServer) Register(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
+	log.Printf("Plugin registered")
+	return map[string]interface{}{
+		"success": true,
+		"message": "Telegram Bot plugin registered successfully",
+	}, nil
+}
+
+func (s *PluginServer) Start(ctx context.Context, configMap map[string]interface{}) (map[string]interface{}, error) {
+	// 从配置映射中提取配置
+	config := Config{
+		ParseForwardedMsg:     true,
+		ParseForwardedComment: true,
+	}
+
+	if botToken, ok := configMap["bot_token"].(string); ok {
+		config.BotToken = botToken
+	}
+	if coreAPI, ok := configMap["core_api_url"].(string); ok {
+		config.CoreAPI = coreAPI
+	} else {
+		config.CoreAPI = "http://mynest:8080/api/v1"
+	}
+	if allowedIDs, ok := configMap["allowed_user_ids"].(string); ok {
+		config.AllowedIDs = parseAllowedIDs(allowedIDs)
+	}
+
+	if config.BotToken == "" {
+		return map[string]interface{}{
+			"success": false,
+			"message": "bot_token is required",
+		}, nil
+	}
+
+	bot, err := NewTelegramBot(config)
+	if err != nil {
+		return map[string]interface{}{
+			"success": false,
+			"message": err.Error(),
+		}, nil
+	}
+
+	s.bot = bot
+
+	// 异步启动机器人
+	go func() {
+		if err := s.bot.Start(); err != nil {
+			log.Printf("Telegram bot failed: %v", err)
+		}
+	}()
+
+	return map[string]interface{}{
+		"success": true,
+		"message": "Telegram Bot started successfully",
+	}, nil
+}
+
+func (s *PluginServer) Stop(ctx context.Context) (map[string]interface{}, error) {
+	if s.bot != nil {
+		s.bot.Stop()
+	}
+	return map[string]interface{}{
+		"success": true,
+		"message": "Telegram Bot stopped successfully",
+	}, nil
+}
+
+func (s *PluginServer) GetConfigSchema(ctx context.Context) (map[string]interface{}, error) {
+	return map[string]interface{}{
+		"fields": []map[string]interface{}{
+			{
+				"key":      "bot_token",
+				"label":    "Bot Token",
+				"type":     "password",
+				"required": true,
+			},
+			{
+				"key":      "core_api_url",
+				"label":    "Core API URL",
+				"type":     "text",
+				"required": false,
+			},
+			{
+				"key":      "allowed_user_ids",
+				"label":    "Allowed User IDs (comma separated)",
+				"type":     "text",
+				"required": false,
+			},
+		},
+	}, nil
+}
+
+func startGRPCServer() {
+	port := os.Getenv("PLUGIN_PORT")
+	if port == "" {
+		port = "50051"
+	}
+
+	listener, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		log.Fatalf("Failed to listen: %v", err)
+	}
+
+	grpcServer := grpc.NewServer()
+	_ = &PluginServer{} // 暂时不使用，为将来的gRPC实现保留
+
+	log.Printf("Telegram Bot Plugin gRPC server listening on :%s", port)
+	// 注意：这里应该注册实际的gRPC服务，但为了简化，我们先用HTTP方式
+	// 目前只是启动一个空的gRPC服务器作为占位符
+	if err := grpcServer.Serve(listener); err != nil {
+		log.Fatalf("Failed to serve gRPC: %v", err)
+	}
+}
+
+func main() {
+	// 检查运行模式
+	mode := os.Getenv("PLUGIN_MODE")
+	if mode == "grpc" {
+		// gRPC服务模式
+		startGRPCServer()
+		return
+	}
+
+	// 直接运行模式（向后兼容）
+	parseForwarded := os.Getenv("PARSE_FORWARDED_MSG")
+	parseComment := os.Getenv("PARSE_FORWARDED_COMMENT")
+	config := Config{
+		BotToken:              os.Getenv("BOT_TOKEN"),
+		CoreAPI:               os.Getenv("CORE_API_URL"),
+		AllowedIDs:            parseAllowedIDs(os.Getenv("ALLOWED_USER_IDS")),
+		ParseForwardedMsg:     parseForwarded == "" || parseForwarded == "true",
+		ParseForwardedComment: parseComment == "" || parseComment == "true",
+	}
+
+	if config.BotToken == "" {
+		log.Fatal("BOT_TOKEN is required")
+	}
+	if config.CoreAPI == "" {
+		config.CoreAPI = "http://localhost:8080/api/v1"
+	}
+
+	bot, err := NewTelegramBot(config)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("Starting Telegram Bot...")
+	if err := bot.Start(); err != nil {
+		log.Printf("Bot stopped: %v", err)
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/matrix/mynest/backend/plugin"
 	"github.com/matrix/mynest/backend/service"
 	"github.com/spf13/viper"
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -51,6 +52,9 @@ func main() {
 	pluginService := service.NewPluginService(pluginManager, pluginRunner)
 	systemConfigService := service.NewSystemConfigService(db)
 
+	// 启动插件健康检查器
+	pluginManager.StartHealthChecker()
+
 	taskSyncService := service.NewTaskSyncService(db, aria2Client)
 	taskSyncService.Start()
 	defer taskSyncService.Stop()
@@ -68,6 +72,31 @@ func main() {
 	logsService.AddLog(ctx, "INFO", "system", "MyNest 系统启动", "Core service started successfully", "Main")
 	logsService.AddLog(ctx, "DEBUG", "system", "数据库连接成功", "Connected to PostgreSQL database", "Database")
 	logsService.AddLog(ctx, "INFO", "plugin", "插件管理器初始化完成", "", "PluginManager")
+
+	// 手动注册 telegram-bot 插件
+	telegramPlugin := &model.Plugin{
+		Name:     "telegram-bot",
+		Version:  "1.0.0",
+		Enabled:  false,
+		Config:   nil,
+		Endpoint: "telegram-bot:50051", // gRPC服务端点
+	}
+
+	var existingPlugin model.Plugin
+	result := db.Where("name = ?", "telegram-bot").First(&existingPlugin)
+	if result.Error == gorm.ErrRecordNotFound {
+		// 插件不存在，创建新插件
+		if err := db.Create(telegramPlugin).Error; err != nil {
+			log.Printf("Failed to register telegram-bot plugin: %v", err)
+		} else {
+			log.Printf("Successfully registered telegram-bot plugin")
+			logsService.AddLog(ctx, "INFO", "plugin", "注册 Telegram Bot 插件", "Plugin registered in database", "PluginManager")
+		}
+	} else if result.Error != nil {
+		log.Printf("Failed to check telegram-bot plugin: %v", result.Error)
+	} else {
+		log.Printf("Telegram-bot plugin already exists")
+	}
 
 	downloadHandler := handler.NewDownloadHandler(downloadService)
 	pluginHandler := handler.NewPluginHandler(pluginService)

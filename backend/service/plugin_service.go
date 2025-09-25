@@ -39,8 +39,38 @@ func (s *PluginService) DisablePlugin(ctx context.Context, name string) error {
 	return s.manager.DisablePlugin(ctx, name)
 }
 
-func (s *PluginService) GetPluginStatus(name string) bool {
-	return s.runner.IsPluginRunning(name)
+func (s *PluginService) GetPluginStatus(name string) map[string]interface{} {
+	// 检查进程状态（如果是进程模式）
+	running := s.runner.IsPluginRunning(name)
+
+	// 检查gRPC连接状态（如果是gRPC模式）
+	grpcStatus := s.manager.GetPluginStatus(name)
+
+	// 合并状态信息
+	status := map[string]interface{}{
+		"process_running": running,
+		"grpc_status":     grpcStatus,
+	}
+
+	// 如果有gRPC状态，使用它；否则使用进程状态
+	if grpcStatus["status"] == "connected" {
+		status["running"] = grpcStatus["running"]
+		status["healthy"] = grpcStatus["healthy"]
+	} else {
+		status["running"] = running
+		status["healthy"] = running
+	}
+
+	return status
+}
+
+// 保持向后兼容
+func (s *PluginService) IsPluginRunning(name string) bool {
+	status := s.GetPluginStatus(name)
+	if running, ok := status["running"].(bool); ok {
+		return running
+	}
+	return false
 }
 
 func (s *PluginService) StartPlugin(ctx context.Context, name string) error {

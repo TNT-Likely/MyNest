@@ -164,7 +164,7 @@ func (r *PluginRunner) buildPluginCommand(name string, config map[string]interfa
 		if apiURL, ok := config["core_api_url"].(string); ok && apiURL != "" {
 			cmd.Env = append(cmd.Env, fmt.Sprintf("CORE_API_URL=%s", apiURL))
 		} else {
-			cmd.Env = append(cmd.Env, "CORE_API_URL=http://localhost:8080")
+			cmd.Env = append(cmd.Env, "CORE_API_URL=http://localhost:8080/api/v1")
 		}
 
 		if allowedIDs, ok := config["allowed_user_ids"].(string); ok && allowedIDs != "" {

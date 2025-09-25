@@ -78,6 +78,8 @@ services:
       timeout: 10s
       retries: 3
 
+# telegram-bot 现在作为 mynest 容器内的独立进程运行
+
 volumes:
   postgres_data:
     driver: local

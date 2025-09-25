@@ -25,6 +25,7 @@ func (h *PluginHandler) ListPlugins(c *gin.Context) {
 
 	pluginsWithStatus := make([]map[string]interface{}, len(plugins))
 	for i, plugin := range plugins {
+		status := h.service.GetPluginStatus(plugin.Name)
 		pluginsWithStatus[i] = map[string]interface{}{
 			"id":       plugin.ID,
 			"name":     plugin.Name,
@@ -32,7 +33,9 @@ func (h *PluginHandler) ListPlugins(c *gin.Context) {
 			"enabled":  plugin.Enabled,
 			"config":   plugin.Config,
 			"endpoint": plugin.Endpoint,
-			"running":  h.service.GetPluginStatus(plugin.Name),
+			"running":  status["running"],
+			"healthy":  status["healthy"],
+			"status":   status,
 			"created_at": plugin.CreatedAt,
 			"updated_at": plugin.UpdatedAt,
 		}

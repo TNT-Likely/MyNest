@@ -22,6 +22,7 @@ COPY . .
 RUN go mod tidy
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o mynest ./backend/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o telegram-bot ./plugins/telegram-bot/main.go
 
 FROM golang:1.23-alpine
 
@@ -30,6 +31,7 @@ RUN apk --no-cache add ca-certificates tzdata nginx supervisor
 WORKDIR /app
 
 COPY --from=backend-builder /app/mynest ./mynest
+COPY --from=backend-builder /app/telegram-bot ./telegram-bot
 
 # 创建Docker环境专用的配置文件
 RUN mkdir -p ./backend && cat > ./backend/config.yaml <<EOF
