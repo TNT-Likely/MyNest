@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,10 +10,31 @@ import { authApi } from '@/lib/api'
 export default function LoginPage() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
+  const [checking, setChecking] = useState(true)
   const [form, setForm] = useState({
     username: 'admin', // 默认填充 admin
     password: '',
   })
+
+  // 检查是否已登录
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem('auth_token')
+      if (token) {
+        try {
+          await authApi.me()
+          // 已登录，跳转到首页
+          navigate('/', { replace: true })
+        } catch (error) {
+          // Token 无效，清除并继续显示登录页
+          localStorage.removeItem('auth_token')
+        }
+      }
+      setChecking(false)
+    }
+
+    checkAuth()
+  }, [navigate])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,6 +75,15 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // 正在检查登录状态时显示加载
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">加载中...</p>
+      </div>
+    )
   }
 
   return (

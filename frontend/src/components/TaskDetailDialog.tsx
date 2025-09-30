@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Task, tasksApi } from '@/lib/api'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogBody, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Copy, AlertCircle, File, Loader2 } from 'lucide-react'
@@ -102,7 +102,8 @@ export default function TaskDetailDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <DialogBody>
+          <div className="space-y-4">
           <div>
             <label className="text-sm font-medium text-muted-foreground">状态</label>
             <div className="mt-1">
@@ -227,53 +228,54 @@ export default function TaskDetailDialog({
               </div>
             </div>
           )}
+          </div>
+        </DialogBody>
 
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            {task.status === 'downloading' && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  onPause(task.id)
-                  onOpenChange(false)
-                }}
-              >
-                暂停
-              </Button>
-            )}
-            {task.status === 'paused' && (
-              <Button
-                onClick={() => {
-                  onPause(task.id)
-                  onOpenChange(false)
-                }}
-              >
-                继续下载
-              </Button>
-            )}
-            {task.status === 'failed' && (
-              <Button
-                onClick={() => {
-                  onRetry(task.id)
-                  onOpenChange(false)
-                }}
-              >
-                重试
-              </Button>
-            )}
+        <div className="flex justify-end gap-2 flex-shrink-0 px-6 pb-6 pt-4 border-t">
+          {task.status === 'downloading' && (
             <Button
-              variant="destructive"
+              variant="outline"
               onClick={() => {
-                // 简单的替换方案：双击删除或使用更友好的提示
-                if (window.confirm('确定要删除这个任务吗？此操作不可撤销。')) {
-                  onDelete(task.id)
-                  onOpenChange(false)
-                  toast.success('任务已删除')
-                }
+                onPause(task.id)
+                onOpenChange(false)
               }}
             >
-              删除任务
+              暂停
             </Button>
-          </div>
+          )}
+          {task.status === 'paused' && (
+            <Button
+              onClick={() => {
+                onPause(task.id)
+                onOpenChange(false)
+              }}
+            >
+              继续下载
+            </Button>
+          )}
+          {task.status === 'failed' && (
+            <Button
+              onClick={() => {
+                onRetry(task.id)
+                onOpenChange(false)
+              }}
+            >
+              重试
+            </Button>
+          )}
+          <Button
+            variant="destructive"
+            onClick={() => {
+              // 简单的替换方案：双击删除或使用更友好的提示
+              if (window.confirm('确定要删除这个任务吗？此操作不可撤销。')) {
+                onDelete(task.id)
+                onOpenChange(false)
+                toast.success('任务已删除')
+              }
+            }}
+          >
+            删除任务
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

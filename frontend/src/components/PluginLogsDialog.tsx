@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogBody, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Plugin } from '@/lib/api'
 import { RefreshCw } from 'lucide-react'
@@ -44,7 +44,7 @@ export default function PluginLogsDialog({ plugin, open, onOpenChange }: PluginL
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -64,17 +64,19 @@ export default function PluginLogsDialog({ plugin, open, onOpenChange }: PluginL
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-auto bg-black/90 text-green-400 font-mono text-sm p-4 rounded-lg">
-          {logs.length === 0 ? (
-            <div className="text-gray-500">暂无日志</div>
-          ) : (
-            logs.map((log, index) => (
-              <div key={index} className="whitespace-pre-wrap break-all">
-                {log}
-              </div>
-            ))
-          )}
-        </div>
+        <DialogBody className="min-h-[400px]">
+          <div className="bg-black/90 text-green-400 font-mono text-sm p-4 rounded-lg h-full">
+            {logs.length === 0 ? (
+              <div className="text-gray-500">暂无日志</div>
+            ) : (
+              logs.map((log, index) => (
+                <div key={index} className="whitespace-pre-wrap break-all">
+                  {log}
+                </div>
+              ))
+            )}
+          </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )

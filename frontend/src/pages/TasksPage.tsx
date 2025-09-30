@@ -5,7 +5,7 @@ import api, { tasksApi, Task, TaskQueryParams } from '../lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogBody, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -242,25 +242,27 @@ export default function TasksPage() {
               </Button>
             </DialogTrigger>
           <DialogContent>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} className="flex flex-col h-full">
               <DialogHeader>
                 <DialogTitle>新建下载任务</DialogTitle>
                 <DialogDescription>
                   输入下载链接，支持 HTTP/HTTPS、磁力链接等
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="url">下载链接</Label>
-                  <Input
-                    id="url"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    placeholder="https://example.com/file.zip"
-                    required
-                  />
+              <DialogBody>
+                <div className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="url">下载链接</Label>
+                    <Input
+                      id="url"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      placeholder="https://example.com/file.zip"
+                      required
+                    />
+                  </div>
                 </div>
-              </div>
+              </DialogBody>
               <DialogFooter>
                 <Button type="submit" disabled={submitting}>
                   {submitting ? '提交中...' : '开始下载'}

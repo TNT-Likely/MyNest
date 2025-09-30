@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogBody, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -83,7 +83,8 @@ export default function PluginConfigDialog({ plugin, open, onOpenChange, onSave 
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <DialogBody>
+          <div className="space-y-4">
           {plugin.name === 'telegram-bot' && (
             <div className="rounded-lg bg-muted p-4 text-sm space-y-2">
               <p className="font-medium">快速配置步骤：</p>
@@ -143,7 +144,8 @@ export default function PluginConfigDialog({ plugin, open, onOpenChange, onSave 
               </div>
             ))
           )}
-        </div>
+          </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
