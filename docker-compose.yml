@@ -80,17 +80,8 @@ services:
     ports:
       - "${PORT:-3001}:80"
     depends_on:
-      postgres:
-        condition: service_healthy
-      aria2:
-        condition: service_healthy
-    deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 5
-    # 恢复 supervisord 管理进程
-    # command: 默认使用 Dockerfile 中的 CMD
+      - postgres
+      - aria2
     environment:
       RUN_MODE: production
       DB_HOST: postgres
