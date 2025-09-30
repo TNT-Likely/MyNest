@@ -525,7 +525,7 @@ export default function TasksPage() {
                       <TableHead>状态</TableHead>
                       <TableHead>来源</TableHead>
                       <TableHead>创建时间</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
+                      <TableHead className="w-[100px]">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="block space-y-3 md:table-row-group md:space-y-0">
@@ -556,18 +556,34 @@ export default function TasksPage() {
                         <TableCell className="text-muted-foreground hidden md:table-cell md:p-4">
                           {new Date(task.created_at).toLocaleString('zh-CN')}
                         </TableCell>
-                        <TableCell className="hidden md:table-cell md:p-4">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setSelectedTask(task)
-                              setDetailOpen(true)
-                            }}
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
+                        <TableCell className="border-0 p-0 pt-2 md:p-4">
+                          <div className="flex items-center gap-2 justify-start md:justify-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleRetry(task.id)
+                              }}
+                              title="重新下载"
+                            >
+                              <RotateCcw className="h-4 w-4 md:mr-0" />
+                              <span className="md:hidden ml-1">重新下载</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setSelectedTask(task)
+                                setDetailOpen(true)
+                              }}
+                              title="详情"
+                              className="md:inline-flex hidden"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

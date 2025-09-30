@@ -42,7 +42,20 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     textArea.style.background = 'transparent'
     // 不设置 readonly，某些浏览器需要可编辑才能复制
 
-    document.body.appendChild(textArea)
+    // 关键修复：如果在 Dialog/Modal 内，需要将 textarea 添加到 Dialog 容器内
+    // 否则焦点陷阱会阻止 textarea 获得焦点
+    let container = document.body
+    const activeElement = document.activeElement
+    if (activeElement) {
+      // 查找最近的 Portal 容器（Radix UI Dialog 使用 [data-radix-portal] 标记）
+      const portal = activeElement.closest('[data-radix-portal]')
+      if (portal) {
+        container = portal as HTMLElement
+        console.log('[Copy] 检测到 Portal 容器，将 textarea 添加到 Portal 内')
+      }
+    }
+
+    container.appendChild(textArea)
 
     // 先移除当前选区
     const selection = window.getSelection()
@@ -73,7 +86,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
         selection?.addRange(originalSelection)
       }
 
-      document.body.removeChild(textArea)
+      container.removeChild(textArea)
 
       if (successful) {
         console.log('[Copy] ✅ execCommand 复制成功')
@@ -91,7 +104,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
         selection?.addRange(originalSelection)
       }
 
-      document.body.removeChild(textArea)
+      container.removeChild(textArea)
       return false
     }
   } catch (err) {
