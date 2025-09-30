@@ -32,6 +32,8 @@ services:
       - PUID=0
       - PGID=0
       - RPC_LISTEN_ALL=true
+      # BT/Magnet 下载完成后不做种
+      - SEED_TIME=0
       # 代理配置（可选）
       - HTTP_PROXY=${HTTP_PROXY:-}
       - HTTPS_PROXY=${HTTPS_PROXY:-}
@@ -58,10 +60,17 @@ services:
     image: p3terx/ariang
     container_name: mynest-ariang
     restart: unless-stopped
+    environment:
+      - ARIA2_RPC_HOST=aria2
+      - ARIA2_RPC_PORT=6800
+      - ARIA2_RPC_SECRET=${ARIA2_SECRET:-mynest123}
+      - ARIA2_RPC_SECURE=false
     ports:
       - "6880:6880"
     networks:
       - mynest
+    depends_on:
+      - aria2
     command: --port 6880 --ipv6
 
   mynest:

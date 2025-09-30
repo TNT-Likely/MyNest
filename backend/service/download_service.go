@@ -45,10 +45,26 @@ func (s *DownloadService) SubmitDownload(ctx context.Context, req types.Download
 		return nil, fmt.Errorf("failed to create task: %w", err)
 	}
 
-	// 获取路径模板配置
-	pathTemplate, err := s.configService.GetConfig(ctx, "download_path_template")
-	if err != nil || pathTemplate == "" {
-		pathTemplate = GetDefaultTemplate()
+	// 根据不同来源获取路径模板配置
+	var pathTemplate string
+	var err error
+
+	switch req.PluginName {
+	case "manual", "web": // 手动下载（兼容旧的 "web"）
+		pathTemplate, err = s.configService.GetConfig(ctx, "manual_download_path")
+		if err != nil || pathTemplate == "" {
+			pathTemplate = "manual/{filename}" // 默认：manual 子目录
+		}
+	case "chrome-extension": // Chrome 插件
+		pathTemplate, err = s.configService.GetConfig(ctx, "chrome_extension_path")
+		if err != nil || pathTemplate == "" {
+			pathTemplate = "chrome/{filename}" // 默认：chrome/ 子目录
+		}
+	default: // 其他插件（telegram-bot, rss 等）
+		pathTemplate, err = s.configService.GetConfig(ctx, "download_path_template")
+		if err != nil || pathTemplate == "" {
+			pathTemplate = GetDefaultTemplate() // 默认：{plugin}/{date}/{filename}
+		}
 	}
 
 	// 优先级：1. 请求中的 filename  2. URL 中的文件名  3. Content-Type 检测
@@ -89,6 +105,9 @@ func (s *DownloadService) SubmitDownload(ctx context.Context, req types.Download
 	}
 
 	options := make(map[string]interface{})
+	// BT/Magnet 下载完成后不做种
+	options["seed-time"] = 0
+
 	if downloadPath != "" {
 		if strings.HasSuffix(downloadPath, "/") {
 			// 只有目录，让 aria2 自动命名
@@ -271,11 +290,23 @@ func (s *DownloadService) DeleteTask(ctx context.Context, id uint) error {
 		return err
 	}
 
+	// 先从 aria2 中删除任务
 	if task.GID != "" {
-		s.downloader.Remove(ctx, task.GID)
+		if err := s.downloader.Remove(ctx, task.GID); err != nil {
+			log.Printf("[DeleteTask] 警告：从 aria2 删除任务失败 (GID: %s): %v", task.GID, err)
+			// 继续执行，即使 aria2 删除失败也要删除数据库记录
+		} else {
+			log.Printf("[DeleteTask] 已从 aria2 删除任务 (GID: %s)", task.GID)
+		}
 	}
 
-	return s.db.Delete(task).Error
+	// 从数据库删除任务记录
+	if err := s.db.Delete(task).Error; err != nil {
+		return fmt.Errorf("删除数据库记录失败: %w", err)
+	}
+
+	log.Printf("[DeleteTask] ✅ 任务 %d 已删除", id)
+	return nil
 }
 
 func (s *DownloadService) PauseTask(ctx context.Context, id uint) error {

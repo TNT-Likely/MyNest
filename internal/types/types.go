@@ -22,7 +22,7 @@ const (
 type DownloadRequest struct {
 	URL        string `json:"url" binding:"required"`
 	Filename   string `json:"filename"`
-	PluginName string `json:"plugin"`
+	PluginName string `json:"plugin_name"`
 	Category   string `json:"category"`
 }
 

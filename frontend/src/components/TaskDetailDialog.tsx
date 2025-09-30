@@ -31,6 +31,16 @@ export default function TaskDetailDialog({
   const [files, setFiles] = useState<TaskFile[]>([])
   const [loadingFiles, setLoadingFiles] = useState(false)
 
+  // 插件名称映射
+  const pluginNameMap: Record<string, string> = {
+    'manual': '手动',
+    'chrome-extension': 'Chrome插件',
+    'telegram-bot': 'Telegram Bot',
+    'rss': 'RSS',
+    'youtube': 'YouTube',
+    'web': '手动', // 兼容旧数据
+  }
+
   useEffect(() => {
     if (open && task) {
       // 获取文件列表
@@ -150,7 +160,7 @@ export default function TaskDetailDialog({
           {task.plugin_name && (
             <div>
               <label className="text-sm font-medium text-muted-foreground">来源</label>
-              <p className="mt-1 text-sm">{task.plugin_name}</p>
+              <p className="mt-1 text-sm">{pluginNameMap[task.plugin_name] || task.plugin_name}</p>
             </div>
           )}
 

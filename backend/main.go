@@ -105,6 +105,11 @@ func main() {
 	tokenService := service.NewTokenService(db)
 	authMiddleware := middleware.NewAuthMiddleware(db, authService)
 
+	// 初始化系统配置（从环境变量/配置文件）
+	initializeSystemConfig(ctx, systemConfigService)
+	// 迁移旧配置
+	migrateOldConfigs(ctx, systemConfigService)
+
 	// 启动插件健康检查器
 	pluginManager.StartHealthChecker()
 
@@ -255,5 +260,45 @@ func main() {
 	log.Printf("MyNest Core starting on %s", addr)
 	if err := r.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
+	}
+}
+
+// initializeSystemConfig 初始化系统配置（仅在配置不存在时设置默认值）
+func initializeSystemConfig(ctx context.Context, svc *service.SystemConfigService) {
+	configs := map[string]string{
+		"aria2_rpc_url":           viper.GetString("aria2.rpc_url"),
+		"aria2_rpc_secret":        viper.GetString("aria2.rpc_secret"),
+		"aria2_download_dir":      viper.GetString("aria2.download_dir"),
+		"download_path_template":  "{plugin}/{date}/{filename}",
+		"manual_download_path":    "manual/{filename}",
+		"chrome_extension_path":   "chrome/{filename}",
+	}
+
+	for key, defaultValue := range configs {
+		// 检查配置是否已存在
+		existingValue, err := svc.GetConfig(ctx, key)
+		if err != nil || existingValue == "" {
+			// 配置不存在，设置默认值
+			if defaultValue != "" {
+				if err := svc.SetConfig(ctx, key, defaultValue); err != nil {
+					log.Printf("Failed to initialize config %s: %v", key, err)
+				} else {
+					log.Printf("Initialized config: %s = %s", key, defaultValue)
+				}
+			}
+		}
+	}
+}
+
+// migrateOldConfigs 迁移旧的配置值到新的默认值
+func migrateOldConfigs(ctx context.Context, svc *service.SystemConfigService) {
+	// 迁移 manual_download_path: {filename} -> manual/{filename}
+	manualPath, err := svc.GetConfig(ctx, "manual_download_path")
+	if err == nil && manualPath == "{filename}" {
+		if err := svc.SetConfig(ctx, "manual_download_path", "manual/{filename}"); err != nil {
+			log.Printf("Failed to migrate manual_download_path: %v", err)
+		} else {
+			log.Printf("Migrated manual_download_path: {filename} -> manual/{filename}")
+		}
 	}
 }

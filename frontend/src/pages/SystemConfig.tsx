@@ -4,14 +4,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { Eye, EyeOff } from 'lucide-react'
 import api from '@/lib/api'
 
 export default function SystemConfig() {
   const [pathTemplate, setPathTemplate] = useState('')
+  const [manualDownloadPath, setManualDownloadPath] = useState('')
+  const [chromeExtensionPath, setChromeExtensionPath] = useState('')
   const [aria2Url, setAria2Url] = useState('')
   const [aria2Secret, setAria2Secret] = useState('')
   const [aria2DownloadDir, setAria2DownloadDir] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showSecret, setShowSecret] = useState(false)
 
   useEffect(() => {
     loadConfigs()
@@ -22,28 +26,29 @@ export default function SystemConfig() {
       const response = await api.get('/system/configs')
       const configs = response.data.configs
       setPathTemplate(configs.download_path_template || '{plugin}/{date}/{filename}')
-      setAria2Url(configs.aria2_rpc_url || 'http://localhost:6800/jsonrpc')
+      setManualDownloadPath(configs.manual_download_path || 'manual/{filename}')
+      setChromeExtensionPath(configs.chrome_extension_path || 'chrome/{filename}')
+      setAria2Url(configs.aria2_rpc_url || 'http://aria2:6800/jsonrpc')
       setAria2Secret(configs.aria2_rpc_secret || '')
+      setAria2DownloadDir(configs.aria2_download_dir || '/downloads')
 
-      // 尝试从下载器获取状态中读取目录
-      try {
-        const statusResp = await api.get('/downloader/status')
-        if (statusResp.data.status?.dir) {
-          setAria2DownloadDir(statusResp.data.status.dir)
-        }
-      } catch (e) {
-        console.error('Failed to load aria2 dir:', e)
-      }
     } catch (error) {
       console.error('Failed to load configs:', error)
     }
   }
 
-  const handleSave = async (key: string, value: string) => {
+  const handleSaveAll = async () => {
     setLoading(true)
     try {
-      await api.post('/system/configs', { key, value })
-      toast.success('✅ 配置已保存')
+      // 保存所有配置
+      await Promise.all([
+        api.post('/system/configs', { key: 'aria2_rpc_url', value: aria2Url }),
+        api.post('/system/configs', { key: 'aria2_rpc_secret', value: aria2Secret }),
+        api.post('/system/configs', { key: 'manual_download_path', value: manualDownloadPath }),
+        api.post('/system/configs', { key: 'chrome_extension_path', value: chromeExtensionPath }),
+        api.post('/system/configs', { key: 'download_path_template', value: pathTemplate }),
+      ])
+      toast.success('✅ 所有配置已保存')
     } catch (error) {
       toast.error('保存失败，请重试')
     } finally {
@@ -69,42 +74,53 @@ export default function SystemConfig() {
               id="aria2Url"
               value={aria2Url}
               onChange={(e) => setAria2Url(e.target.value)}
-              placeholder="http://localhost:6800/jsonrpc"
+              placeholder="http://aria2:6800/jsonrpc"
             />
+            <p className="text-sm text-muted-foreground">
+              Docker 环境使用服务名: <code className="bg-muted px-1 py-0.5 rounded">http://aria2:6800/jsonrpc</code>
+            </p>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="aria2Secret">aria2 RPC 密钥</Label>
-            <Input
-              id="aria2Secret"
-              type="password"
-              value={aria2Secret}
-              onChange={(e) => setAria2Secret(e.target.value)}
-              placeholder="请输入密钥"
-            />
+            <div className="relative">
+              <Input
+                id="aria2Secret"
+                type={showSecret ? "text" : "password"}
+                value={aria2Secret}
+                onChange={(e) => setAria2Secret(e.target.value)}
+                placeholder="请输入密钥"
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                onClick={() => setShowSecret(!showSecret)}
+              >
+                {showSecret ? (
+                  <EyeOff className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="aria2DownloadDir">下载目录（只读）</Label>
+            <Label htmlFor="aria2DownloadDir">aria2 下载目录</Label>
             <Input
               id="aria2DownloadDir"
-              value={aria2DownloadDir || '从 aria2 自动获取'}
+              value={aria2DownloadDir || '/downloads'}
               disabled
               className="bg-muted"
             />
             <p className="text-sm text-muted-foreground">
-              aria2 启动时配置的下载目录，应用会在此目录下创建子目录
+              aria2 的基础下载目录（容器内路径），MyNest 会在此目录下创建子目录
             </p>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={() => handleSave('aria2_rpc_url', aria2Url)} disabled={loading}>
-              保存 RPC 地址
-            </Button>
-            <Button onClick={() => handleSave('aria2_rpc_secret', aria2Secret)} disabled={loading}>
-              保存 RPC 密钥
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
@@ -122,9 +138,41 @@ export default function SystemConfig() {
             </ul>
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="pathTemplate">路径模板</Label>
+            <Label htmlFor="manualDownloadPath">手动下载路径</Label>
+            <Input
+              id="manualDownloadPath"
+              value={manualDownloadPath}
+              onChange={(e) => setManualDownloadPath(e.target.value)}
+              placeholder="manual/{filename}"
+            />
+            <p className="text-sm text-muted-foreground">
+              从 Web 界面手动添加的任务保存路径
+            </p>
+            <p className="text-sm text-muted-foreground">
+              示例：<code className="bg-muted px-1 py-0.5 rounded">{manualDownloadPath}</code> → manual/video.mp4
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="chromeExtensionPath">Chrome 插件下载路径</Label>
+            <Input
+              id="chromeExtensionPath"
+              value={chromeExtensionPath}
+              onChange={(e) => setChromeExtensionPath(e.target.value)}
+              placeholder="chrome/{filename}"
+            />
+            <p className="text-sm text-muted-foreground">
+              通过 Chrome 插件添加的任务保存路径
+            </p>
+            <p className="text-sm text-muted-foreground">
+              示例：<code className="bg-muted px-1 py-0.5 rounded">{chromeExtensionPath}</code> → chrome/video.mp4
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="pathTemplate">其他插件默认路径模板</Label>
             <Input
               id="pathTemplate"
               value={pathTemplate}
@@ -132,15 +180,21 @@ export default function SystemConfig() {
               placeholder="{plugin}/{date}/{filename}"
             />
             <p className="text-sm text-muted-foreground">
-              示例：<code className="bg-muted px-1 py-0.5 rounded">{pathTemplate}</code> → telegram-bot/2025-09-24/video.mp4
+              Telegram Bot、RSS 等插件使用此模板（各插件可在插件配置页单独设置）
+            </p>
+            <p className="text-sm text-muted-foreground">
+              示例：<code className="bg-muted px-1 py-0.5 rounded">{pathTemplate}</code> → telegram-bot/2025-09-30/video.mp4
             </p>
           </div>
 
-          <Button onClick={() => handleSave('download_path_template', pathTemplate)} disabled={loading}>
-            {loading ? '保存中...' : '保存路径模板'}
-          </Button>
         </CardContent>
       </Card>
+
+      <div className="flex justify-end">
+        <Button onClick={handleSaveAll} disabled={loading} size="lg">
+          {loading ? '保存中...' : '保存所有配置'}
+        </Button>
+      </div>
     </div>
   )
 }

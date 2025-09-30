@@ -152,14 +152,30 @@ func (s *TaskSyncService) syncActiveTasks() {
 
 		switch status.Status {
 		case "active":
-			updates["status"] = string(types.TaskStatusDownloading)
-			updates["error_msg"] = "" // 清除之前的错误信息
-			if len(status.Files) > 0 {
-				// 更新文件路径
-				updates["file_path"] = status.Files[0].Path
-				// 如果还没有设置文件名，也同时设置
-				if task.Filename == "" {
-					updates["filename"] = status.Files[0].Path
+			// 检查是否下载完成（可能正在做种）
+			if status.TotalLength > 0 && status.CompletedLength >= status.TotalLength {
+				// BT/Magnet 任务下载完成，可能正在做种
+				log.Printf("[TaskSync] ✅ 任务 %d 下载完成（可能正在做种）: %s", task.ID, task.URL)
+				updates["status"] = string(types.TaskStatusCompleted)
+				now := time.Now()
+				updates["completed_at"] = &now
+				if len(status.Files) > 0 {
+					updates["file_path"] = status.Files[0].Path
+					if task.Filename == "" {
+						updates["filename"] = status.Files[0].Path
+					}
+				}
+			} else {
+				// 正在下载中
+				updates["status"] = string(types.TaskStatusDownloading)
+				updates["error_msg"] = "" // 清除之前的错误信息
+				if len(status.Files) > 0 {
+					// 更新文件路径
+					updates["file_path"] = status.Files[0].Path
+					// 如果还没有设置文件名，也同时设置
+					if task.Filename == "" {
+						updates["filename"] = status.Files[0].Path
+					}
 				}
 			}
 		case "waiting":

@@ -36,6 +36,10 @@ func (h *DownloadHandler) SubmitDownload(c *gin.Context) {
 		return
 	}
 
+	// 调试日志：打印接收到的请求数据
+	fmt.Printf("[DEBUG] SubmitDownload - 接收到的请求: URL=%s, PluginName=%s, Category=%s, Filename=%s\n",
+		req.URL, req.PluginName, req.Category, req.Filename)
+
 	task, err := h.service.SubmitDownload(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{

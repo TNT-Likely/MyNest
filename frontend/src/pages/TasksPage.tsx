@@ -51,11 +51,22 @@ export default function TasksPage() {
 
   // 来源插件选项
   const pluginOptions: Option[] = [
+    { value: 'manual', label: '手动添加' },
+    { value: 'chrome-extension', label: 'Chrome 插件' },
     { value: 'telegram-bot', label: 'Telegram Bot' },
-    { value: 'web', label: 'Web 直接下载' },
     { value: 'rss', label: 'RSS 订阅' },
     { value: 'youtube', label: 'YouTube' },
   ]
+
+  // 插件名称映射（用于表格显示）
+  const pluginNameMap: Record<string, string> = {
+    'manual': '手动',
+    'chrome-extension': 'Chrome插件',
+    'telegram-bot': 'Telegram Bot',
+    'rss': 'RSS',
+    'youtube': 'YouTube',
+    'web': '手动', // 兼容旧数据
+  }
 
   useEffect(() => {
     loadTasks()
@@ -111,7 +122,7 @@ export default function TasksPage() {
     try {
       await api.post('/download', {
         url: url.trim(),
-        plugin_name: 'web',
+        plugin_name: 'manual',
         category: 'manual'
       })
       setUrl('')
@@ -376,7 +387,7 @@ export default function TasksPage() {
                         </TableCell>
                         <TableCell>{getStatusBadge(task.status)}</TableCell>
                         <TableCell className="text-muted-foreground">
-                          {task.plugin_name || '-'}
+                          {pluginNameMap[task.plugin_name] || task.plugin_name || '-'}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {new Date(task.created_at).toLocaleString('zh-CN')}
@@ -506,7 +517,7 @@ export default function TasksPage() {
                   </TableCell>
                   <TableCell>{getStatusBadge(task.status)}</TableCell>
                   <TableCell className="text-muted-foreground">
-                    {task.plugin_name || '-'}
+                    {pluginNameMap[task.plugin_name] || task.plugin_name || '-'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {new Date(task.created_at).toLocaleString('zh-CN')}
@@ -641,7 +652,7 @@ export default function TasksPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {task.plugin_name || '-'}
+                          {pluginNameMap[task.plugin_name] || task.plugin_name || '-'}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {new Date(task.created_at).toLocaleString('zh-CN')}
