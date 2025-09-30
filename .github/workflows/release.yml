@@ -160,7 +160,10 @@ jobs:
             fi
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          PREV_TAG=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo '')
+
+          # 获取上一个 tag（不含当前 tag）
+          TAG="v$VERSION"
+          PREV_TAG=$(git tag --list --sort=-version:refname 'v*' | grep -v "^${TAG}$" | head -n1)
           echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
 
       - name: Rename Chrome extension with version
@@ -172,25 +175,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          TAG="v${{ steps.vars.outputs.version }}"
           PREV_TAG="${{ steps.vars.outputs.prev_tag }}"
 
-          echo "Current tag: v${{ steps.vars.outputs.version }}"
+          echo "Current tag: $TAG"
           echo "Previous tag: ${PREV_TAG:-none}"
 
+          # 生成 commit 列表（排除 merge commit）
           if [[ -n "$PREV_TAG" ]]; then
             echo "Generating commit log from $PREV_TAG to HEAD"
             COMMITS=$(git log --no-merges --pretty=format:'- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))' "$PREV_TAG"..HEAD)
           else
-            echo "No previous tag found, showing recent commits (last 20)"
-            COMMITS=$(git log --no-merges --pretty=format:'- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))' -n 20)
+            echo "No previous tag found, showing all commits"
+            COMMITS=$(git log --no-merges --pretty=format:'- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))')
           fi
 
-          # 输出到 GITHUB_OUTPUT
+          # 写入 release notes 文件
           {
-            echo "log<<EOF"
+            echo "## 变更记录"
+            echo ""
             echo "$COMMITS"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
+            echo ""
+          } > RELEASE_NOTES.md
+
+          echo "notes_file=RELEASE_NOTES.md" >> $GITHUB_OUTPUT
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -217,7 +225,7 @@ jobs:
         with:
           tag_name: v${{ steps.vars.outputs.version }}
           name: MyNest v${{ steps.vars.outputs.version }}
-          body: ${{ steps.changelog.outputs.log }}
+          body_path: ${{ steps.changelog.outputs.notes_file }}
           files: |
             mynest-chrome-extension-v${{ steps.vars.outputs.version }}.zip
           prerelease: ${{ github.event.inputs.prerelease == 'true' }}
