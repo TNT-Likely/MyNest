@@ -31,10 +31,12 @@ func (h *TaskProgressHandler) GetProgress(c *gin.Context) {
 	}
 
 	progress := h.service.GetTaskProgress(c.Request.Context(), task)
+	files := h.service.GetTaskFiles(c.Request.Context(), task)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success":  true,
 		"task":     task,
 		"progress": progress,
+		"files":    files,
 	})
 }

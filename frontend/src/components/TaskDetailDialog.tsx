@@ -1,9 +1,15 @@
-import { Task } from '@/lib/api'
+import { useEffect, useState } from 'react'
+import { Task, tasksApi } from '@/lib/api'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Copy, AlertCircle } from 'lucide-react'
+import { Copy, AlertCircle, File, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+
+interface TaskFile {
+  path: string
+  length: number
+}
 
 interface TaskDetailDialogProps {
   task: Task | null
@@ -22,6 +28,30 @@ export default function TaskDetailDialog({
   onDelete,
   onPause
 }: TaskDetailDialogProps) {
+  const [files, setFiles] = useState<TaskFile[]>([])
+  const [loadingFiles, setLoadingFiles] = useState(false)
+
+  useEffect(() => {
+    if (open && task) {
+      // 获取文件列表
+      setLoadingFiles(true)
+      tasksApi.getProgress(task.id)
+        .then(response => {
+          if (response.data.files && response.data.files.length > 0) {
+            setFiles(response.data.files)
+          }
+        })
+        .catch(error => {
+          console.error('Failed to fetch files:', error)
+        })
+        .finally(() => {
+          setLoadingFiles(false)
+        })
+    } else {
+      setFiles([])
+    }
+  }, [open, task])
+
   if (!task) return null
 
   const copyToClipboard = async (text: string) => {
@@ -31,6 +61,14 @@ export default function TaskDetailDialog({
     } catch (error) {
       toast.error('复制失败')
     }
+  }
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
   }
 
   const getStatusColor = (status: string) => {
@@ -141,6 +179,42 @@ export default function TaskDetailDialog({
               <p className="mt-1 text-sm">
                 {new Date(task.completed_at).toLocaleString('zh-CN')}
               </p>
+            </div>
+          )}
+
+          {/* 文件列表 */}
+          {loadingFiles ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>加载文件列表...</span>
+            </div>
+          ) : files.length > 0 && (
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">
+                文件列表 ({files.length} 个文件)
+              </label>
+              <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
+                {files.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-start gap-2 p-2 rounded bg-muted/50 hover:bg-muted transition-colors"
+                  >
+                    <File className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm break-all">{file.path}</p>
+                      <p className="text-xs text-muted-foreground">{formatBytes(file.length)}</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(file.path)}
+                      className="flex-shrink-0"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

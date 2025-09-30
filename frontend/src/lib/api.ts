@@ -52,6 +52,11 @@ export interface TaskProgress {
   status: string
 }
 
+export interface TaskFile {
+  path: string
+  length: number
+}
+
 export interface Plugin {
   id: number
   name: string
@@ -91,7 +96,7 @@ export const tasksApi = {
       }
     }),
   get: (id: number) => api.get<{ success: boolean; task: Task }>(`/tasks/${id}`),
-  getProgress: (id: number) => api.get<{ success: boolean; task: Task; progress: TaskProgress }>(`/tasks/${id}/progress`),
+  getProgress: (id: number) => api.get<{ success: boolean; task: Task; progress: TaskProgress; files?: TaskFile[] }>(`/tasks/${id}/progress`),
   retry: (id: number) => api.post(`/tasks/${id}/retry`),
   delete: (id: number) => api.delete(`/tasks/${id}`),
   pause: (id: number) => api.post(`/tasks/${id}/pause`),

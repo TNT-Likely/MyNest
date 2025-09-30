@@ -3,13 +3,14 @@ package downloader
 import "context"
 
 type Status struct {
-	GID           string
-	Status        string
-	TotalLength   int64
+	GID             string
+	Status          string
+	TotalLength     int64
 	CompletedLength int64
-	DownloadSpeed int64
-	ErrorMessage  string
-	Files         []File
+	DownloadSpeed   int64
+	ErrorMessage    string
+	Files           []File
+	FollowedBy      []string // 后续任务的 GID（magnet 链接元数据下载完成后的实际下载任务）
 }
 
 type File struct {

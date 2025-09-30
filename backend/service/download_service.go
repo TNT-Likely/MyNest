@@ -288,18 +288,35 @@ func (s *DownloadService) PauseTask(ctx context.Context, id uint) error {
 		return fmt.Errorf("task has no GID")
 	}
 
+	// 获取当前任务状态，检查是否有后续任务（magnet 链接）
+	actualGID := task.GID
+	status, err := s.downloader.TellStatus(ctx, task.GID)
+	if err == nil && len(status.FollowedBy) > 0 {
+		// 如果有后续任务，使用后续任务的 GID
+		actualGID = status.FollowedBy[0]
+		log.Printf("[PauseTask] 检测到 magnet 链接后续任务，使用 GID: %s", actualGID)
+	}
+
 	if task.Status == string(types.TaskStatusPaused) {
-		if err := s.downloader.Unpause(ctx, task.GID); err != nil {
-			return err
+		// 恢复下载
+		if err := s.downloader.Unpause(ctx, actualGID); err != nil {
+			return fmt.Errorf("恢复下载失败: %w", err)
 		}
-		return s.db.Model(task).Update("status", string(types.TaskStatusDownloading)).Error
+		return s.db.Model(task).Updates(map[string]interface{}{
+			"status": string(types.TaskStatusDownloading),
+			"gid":    actualGID, // 更新为实际的 GID
+		}).Error
 	}
 
-	if err := s.downloader.Pause(ctx, task.GID); err != nil {
-		return err
+	// 暂停下载
+	if err := s.downloader.Pause(ctx, actualGID); err != nil {
+		return fmt.Errorf("暂停下载失败: %w", err)
 	}
 
-	return s.db.Model(task).Update("status", string(types.TaskStatusPaused)).Error
+	return s.db.Model(task).Updates(map[string]interface{}{
+		"status": string(types.TaskStatusPaused),
+		"gid":    actualGID, // 更新为实际的 GID
+	}).Error
 }
 
 type TaskProgress struct {
@@ -322,6 +339,20 @@ func (s *DownloadService) GetTaskProgress(ctx context.Context, task *model.Downl
 	status, err := s.downloader.TellStatus(ctx, task.GID)
 	if err != nil {
 		return progress
+	}
+
+	// 对于 magnet 链接，如果元数据下载完成，优先查询实际下载任务的进度
+	// FollowedBy 包含后续任务的 GID（元数据下载完成后创建的实际内容下载任务）
+	if len(status.FollowedBy) > 0 {
+		// 使用第一个后续任务的 GID（实际下载任务）
+		followedGID := status.FollowedBy[0]
+		followedStatus, err := s.downloader.TellStatus(ctx, followedGID)
+		if err == nil {
+			// 成功获取到实际下载任务的状态，使用它的进度
+			status = followedStatus
+			log.Printf("[Download] Using followed task progress: GID=%s -> %s", task.GID, followedGID)
+		}
+		// 如果获取失败，继续使用原始状态（可能元数据任务还未完成）
 	}
 
 	progress.TotalLength = status.TotalLength
@@ -434,4 +465,40 @@ func (s *DownloadService) ClearFailedTasks(ctx context.Context) (int64, error) {
 	}
 
 	return result.RowsAffected, nil
+}
+
+type TaskFile struct {
+	Path   string `json:"path"`
+	Length int64  `json:"length"`
+}
+
+func (s *DownloadService) GetTaskFiles(ctx context.Context, task *model.DownloadTask) []TaskFile {
+	var files []TaskFile
+
+	if task.GID == "" {
+		return files
+	}
+
+	status, err := s.downloader.TellStatus(ctx, task.GID)
+	if err != nil {
+		return files
+	}
+
+	// 对于 magnet 链接，如果有后续任务，获取实际下载任务的文件列表
+	if len(status.FollowedBy) > 0 {
+		followedGID := status.FollowedBy[0]
+		followedStatus, err := s.downloader.TellStatus(ctx, followedGID)
+		if err == nil {
+			status = followedStatus
+		}
+	}
+
+	for _, f := range status.Files {
+		files = append(files, TaskFile{
+			Path:   f.Path,
+			Length: f.Length,
+		})
+	}
+
+	return files
 }

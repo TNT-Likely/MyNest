@@ -56,6 +56,7 @@ func (a *Aria2Client) TellStatus(ctx context.Context, gid string) (*Status, erro
 		DownloadSpeed:   downloadSpeed,
 		ErrorMessage:    info.ErrorMessage,
 		Files:           make([]File, len(info.Files)),
+		FollowedBy:      info.FollowedBy,
 	}
 
 	// 详细状态日志
