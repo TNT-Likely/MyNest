@@ -18,7 +18,7 @@ interface TaskDetailDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onRetry: (id: number) => void
-  onDelete: (id: number) => void
+  onDelete: (id: number, deleteFiles?: boolean) => void
   onPause: (id: number) => void
 }
 
@@ -214,12 +214,12 @@ export default function TaskDetailDialog({
                 {files.map((file, index) => (
                   <div
                     key={index}
-                    className="flex items-start gap-2 p-2 rounded bg-muted/50 hover:bg-muted transition-colors"
+                    className="flex items-start gap-2 p-3 rounded-md border bg-card hover:bg-accent/50 transition-colors"
                   >
                     <File className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm break-all">{file.path}</p>
-                      <p className="text-xs text-muted-foreground">{formatBytes(file.length)}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{formatBytes(file.length)}</p>
                     </div>
                     <Button
                       variant="ghost"
@@ -273,15 +273,36 @@ export default function TaskDetailDialog({
             variant="destructive"
             onClick={async () => {
               if (!task) return
-              const confirmed = await confirm({
+              const result = await confirm({
                 title: '确认删除',
                 description: '确定要删除这个任务吗？此操作不可撤销。',
                 confirmText: '删除',
                 cancelText: '取消',
                 variant: 'destructive',
+                children: ({ value, onChange }) => (
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="delete-files"
+                      checked={value}
+                      onChange={(e) => onChange(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                    />
+                    <label
+                      htmlFor="delete-files"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      同时删除本地文件
+                    </label>
+                  </div>
+                ),
               })
-              if (confirmed) {
-                onDelete(task.id)
+              if (result && typeof result === 'object' && result.confirmed) {
+                onDelete(task.id, result.data)
+                onOpenChange(false)
+                toast.success(result.data ? '任务和文件已删除' : '任务已删除')
+              } else if (result === true) {
+                onDelete(task.id, false)
                 onOpenChange(false)
                 toast.success('任务已删除')
               }

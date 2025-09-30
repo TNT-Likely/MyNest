@@ -149,9 +149,9 @@ export default function TasksPage() {
     }
   }
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: number, deleteFiles: boolean = false) => {
     try {
-      await tasksApi.delete(id)
+      await tasksApi.delete(id, deleteFiles)
       await loadTasks()
     } catch (error) {
       console.error('Failed to delete task:', error)

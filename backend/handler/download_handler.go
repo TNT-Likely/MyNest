@@ -172,14 +172,22 @@ func (h *DownloadHandler) DeleteTask(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeleteTask(c.Request.Context(), uri.ID); err != nil {
+	// 读取 delete_files 查询参数
+	deleteFiles := c.DefaultQuery("delete_files", "false") == "true"
+
+	if err := h.service.DeleteTask(c.Request.Context(), uri.ID, deleteFiles); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
+	message := "任务已删除"
+	if deleteFiles {
+		message = "任务和文件已删除"
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "任务已删除",
+		"message": message,
 	})
 }
 

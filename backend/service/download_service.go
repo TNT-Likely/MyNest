@@ -296,7 +296,7 @@ func (s *DownloadService) RetryTask(ctx context.Context, id uint) error {
 	return s.db.Model(task).Updates(updates).Error
 }
 
-func (s *DownloadService) DeleteTask(ctx context.Context, id uint) error {
+func (s *DownloadService) DeleteTask(ctx context.Context, id uint, deleteFiles bool) error {
 	task, err := s.GetTask(ctx, id)
 	if err != nil {
 		return err
@@ -309,6 +309,21 @@ func (s *DownloadService) DeleteTask(ctx context.Context, id uint) error {
 			// 继续执行，即使 aria2 删除失败也要删除数据库记录
 		} else {
 			log.Printf("[DeleteTask] 已从 aria2 删除任务 (GID: %s)", task.GID)
+		}
+	}
+
+	// 如果需要删除本地文件
+	if deleteFiles && task.FilePath != "" {
+		log.Printf("[DeleteTask] 尝试删除本地文件: %s", task.FilePath)
+		if err := os.Remove(task.FilePath); err != nil {
+			if !os.IsNotExist(err) {
+				log.Printf("[DeleteTask] 警告：删除本地文件失败: %v", err)
+				// 继续执行，即使文件删除失败也要删除数据库记录
+			} else {
+				log.Printf("[DeleteTask] 文件不存在，跳过删除: %s", task.FilePath)
+			}
+		} else {
+			log.Printf("[DeleteTask] ✅ 已删除本地文件: %s", task.FilePath)
 		}
 	}
 

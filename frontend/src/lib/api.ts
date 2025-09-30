@@ -98,7 +98,8 @@ export const tasksApi = {
   get: (id: number) => api.get<{ success: boolean; task: Task }>(`/tasks/${id}`),
   getProgress: (id: number) => api.get<{ success: boolean; task: Task; progress: TaskProgress; files?: TaskFile[] }>(`/tasks/${id}/progress`),
   retry: (id: number) => api.post(`/tasks/${id}/retry`),
-  delete: (id: number) => api.delete(`/tasks/${id}`),
+  delete: (id: number, deleteFiles: boolean = false) =>
+    api.delete(`/tasks/${id}`, { params: { delete_files: deleteFiles } }),
   pause: (id: number) => api.post(`/tasks/${id}/pause`),
   clearFailed: () => api.delete<{ success: boolean; message: string; cleared_count: number }>('/tasks/failed'),
 }

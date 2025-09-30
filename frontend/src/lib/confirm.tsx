@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client'
+import { useState } from 'react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,15 +17,17 @@ interface ConfirmOptions {
   confirmText?: string
   cancelText?: string
   variant?: 'default' | 'destructive'
+  children?: (props: { value: boolean; onChange: (value: boolean) => void }) => React.ReactNode
 }
 
-export function confirm(options: ConfirmOptions): Promise<boolean> {
+export function confirm(options: ConfirmOptions): Promise<boolean | { confirmed: true; data: boolean }> {
   const {
     title,
     description,
     confirmText = '确认',
     cancelText = '取消',
     variant = 'default',
+    children,
   } = options
 
   return new Promise((resolve) => {
@@ -37,40 +40,55 @@ export function confirm(options: ConfirmOptions): Promise<boolean> {
       document.body.removeChild(container)
     }
 
-    const handleConfirm = () => {
-      cleanup()
-      resolve(true)
-    }
+    function ConfirmDialog() {
+      const [checkboxValue, setCheckboxValue] = useState(false)
 
-    const handleCancel = () => {
-      cleanup()
-      resolve(false)
-    }
+      const handleConfirm = () => {
+        cleanup()
+        if (children) {
+          resolve({ confirmed: true, data: checkboxValue })
+        } else {
+          resolve(true)
+        }
+      }
 
-    root.render(
-      <AlertDialog open={true} onOpenChange={(open) => !open && handleCancel()}>
-        <AlertDialogContent className="sm:max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle>{title}</AlertDialogTitle>
-            {description && (
-              <AlertDialogDescription>{description}</AlertDialogDescription>
+      const handleCancel = () => {
+        cleanup()
+        resolve(false)
+      }
+
+      return (
+        <AlertDialog open={true} onOpenChange={(open) => !open && handleCancel()}>
+          <AlertDialogContent className="sm:max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle>{title}</AlertDialogTitle>
+              {description && (
+                <AlertDialogDescription>{description}</AlertDialogDescription>
+              )}
+            </AlertDialogHeader>
+            {children && (
+              <div className="py-4">
+                {children({ value: checkboxValue, onChange: setCheckboxValue })}
+              </div>
             )}
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancel}>{cancelText}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirm}
-              className={
-                variant === 'destructive'
-                  ? 'bg-red-600 hover:bg-red-700 focus:ring-red-600'
-                  : ''
-              }
-            >
-              {confirmText}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    )
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={handleCancel}>{cancelText}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirm}
+                className={
+                  variant === 'destructive'
+                    ? 'bg-red-600 hover:bg-red-700 focus:ring-red-600'
+                    : ''
+                }
+              >
+                {confirmText}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )
+    }
+
+    root.render(<ConfirmDialog />)
   })
 }
