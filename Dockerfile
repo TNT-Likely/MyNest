@@ -1,5 +1,8 @@
 FROM node:18-alpine AS frontend-builder
 
+# 接收版本号参数
+ARG VERSION=0.1.0
+
 WORKDIR /app
 
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
@@ -7,6 +10,9 @@ COPY frontend/package.json frontend/pnpm-lock.yaml ./
 RUN npm install -g pnpm && pnpm install
 
 COPY frontend/ .
+
+# 更新 package.json 中的版本号
+RUN node -e "const fs=require('fs');const pkg=JSON.parse(fs.readFileSync('package.json'));pkg.version='${VERSION}';fs.writeFileSync('package.json',JSON.stringify(pkg,null,2)+'\n');"
 
 RUN pnpm build
 

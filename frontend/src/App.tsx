@@ -46,6 +46,9 @@ function Navigation({ user, onLogout, onRefreshUser }: { user: User | null; onLo
             <Link to="/" className="flex items-center space-x-2 flex-shrink-0">
               <h1 className="text-xl font-bold">🪹 MyNest</h1>
               <span className="hidden sm:inline text-sm text-muted-foreground">链接的归巢</span>
+              <span className="hidden lg:inline text-xs text-muted-foreground/60 px-2 py-0.5 rounded-full bg-muted/50">
+                v{__APP_VERSION__}
+              </span>
             </Link>
 
             {/* 桌面端导航 */}
@@ -95,6 +98,7 @@ function Navigation({ user, onLogout, onRefreshUser }: { user: User | null; onLo
                   {user && (
                     <div className="pb-4 border-b">
                       <p className="text-sm font-medium">{user.username}</p>
+                      <p className="text-xs text-muted-foreground mt-1">v{__APP_VERSION__}</p>
                     </div>
                   )}
                   {navLinks.map((link) => (

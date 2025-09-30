@@ -32,6 +32,19 @@ func NewDownloadService(db *gorm.DB, dl downloader.Downloader) *DownloadService 
 	}
 }
 
+// setCommonDownloadOptions 设置通用的下载选项
+func setCommonDownloadOptions(options map[string]interface{}) {
+	// BT/Magnet 下载完成后不做种
+	options["seed-time"] = 0
+	// 支持 HTTP 重定向（如抖音的 302 重定向）
+	options["max-tries"] = 5
+	options["max-connection-per-server"] = 5
+	options["split"] = 5
+	options["min-split-size"] = "1M"
+	options["follow-metalink"] = "true"
+	options["metalink-preferred-protocol"] = "https"
+}
+
 func (s *DownloadService) SubmitDownload(ctx context.Context, req types.DownloadRequest) (*model.DownloadTask, error) {
 	task := &model.DownloadTask{
 		URL:        req.URL,
@@ -105,14 +118,7 @@ func (s *DownloadService) SubmitDownload(ctx context.Context, req types.Download
 	}
 
 	options := make(map[string]interface{})
-	// BT/Magnet 下载完成后不做种
-	options["seed-time"] = 0
-
-	// 支持 HTTP 重定向（如抖音的 302 重定向）
-	options["max-tries"] = 5
-	options["max-connection-per-server"] = 5
-	options["split"] = 5
-	options["min-split-size"] = "1M"
+	setCommonDownloadOptions(options)
 
 	if downloadPath != "" {
 		if strings.HasSuffix(downloadPath, "/") {
@@ -271,15 +277,10 @@ func (s *DownloadService) RetryTask(ctx context.Context, id uint) error {
 	}
 
 	options := make(map[string]interface{})
+	setCommonDownloadOptions(options)
 	if task.Filename != "" {
 		options["out"] = task.Filename
 	}
-
-	// 添加重定向和防盗链支持
-	options["max-tries"] = 5
-	options["max-connection-per-server"] = 5
-	options["split"] = 5
-	options["min-split-size"] = "1M"
 
 	gid, err := s.downloader.AddURI(ctx, []string{task.URL}, options)
 	if err != nil {
