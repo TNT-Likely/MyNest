@@ -8,6 +8,7 @@ interface MediaResource {
   width?: number  // 图片/视频宽度
   height?: number  // 图片/视频高度
   alt?: string
+  thumbnail?: string  // 视频封面（base64）
 }
 
 // 监听来自 background 的消息
@@ -33,11 +34,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true // 保持消息通道开放
 })
 
-// 异步嗅探页面中的所有媒体资源（带文件大小）
+// 异步嗅探页面中的所有媒体资源（带文件大小和视频封面）
 async function sniffPageMediaAsync(): Promise<MediaResource[]> {
   const resources = sniffPageMedia()
 
-  // 尝试获取每个资源的文件大小
+  // 第一步：快速获取文件大小
   const resourcesWithSize = await Promise.all(
     resources.map(async (resource) => {
       const size = await getResourceSize(resource.url)
@@ -46,7 +47,36 @@ async function sniffPageMediaAsync(): Promise<MediaResource[]> {
   )
 
   // 按文件大小排序（从大到小）
-  return resourcesWithSize.sort((a, b) => (b.size || 0) - (a.size || 0))
+  const sortedResources = resourcesWithSize.sort((a, b) => (b.size || 0) - (a.size || 0))
+
+  // 第二步：仅为前3个没有封面的视频异步生成封面（不阻塞返回）
+  const videosNeedingThumbnails = sortedResources
+    .filter(r => r.type === 'video' && !r.thumbnail)
+    .slice(0, 3) // 只处理前3个
+
+  if (videosNeedingThumbnails.length > 0) {
+    // 在后台异步生成封面，不等待完成
+    Promise.all(
+      videosNeedingThumbnails.map(async (resource) => {
+        const thumbnail = await captureVideoThumbnail(resource.url)
+        if (thumbnail) {
+          resource.thumbnail = thumbnail
+          // 发送消息通知更新（可选）
+          chrome.runtime.sendMessage({
+            action: 'thumbnailGenerated',
+            url: resource.url,
+            thumbnail
+          }).catch(() => {
+            // 忽略错误
+          })
+        }
+      })
+    ).catch((error) => {
+      console.debug('Background thumbnail generation error:', error)
+    })
+  }
+
+  return sortedResources
 }
 
 // 获取资源文件大小
@@ -75,6 +105,94 @@ async function getResourceSize(url: string): Promise<number> {
     // 如果失败，返回 0
     console.debug('Failed to get size for:', url)
     return 0
+  }
+}
+
+// 截取视频封面
+async function captureVideoThumbnail(videoUrl: string): Promise<string | undefined> {
+  try {
+    return await new Promise<string | undefined>((resolve) => {
+      // 创建临时视频元素
+      const video = document.createElement('video')
+      video.crossOrigin = 'anonymous'
+      video.preload = 'metadata'
+      video.muted = true
+      video.playsInline = true
+      video.style.display = 'none'
+      document.body.appendChild(video)
+
+      // 设置超时（2秒）
+      const timeout = setTimeout(() => {
+        cleanup()
+        resolve(undefined)
+      }, 2000)
+
+      const cleanup = () => {
+        clearTimeout(timeout)
+        video.remove()
+      }
+
+      // 当视频可以播放时截取帧
+      video.addEventListener('loadeddata', () => {
+        try {
+          // 跳转到视频的 1 秒位置（或视频长度的 10%）
+          const seekTime = Math.min(1, video.duration * 0.1)
+          video.currentTime = seekTime
+        } catch (e) {
+          console.debug('Failed to seek video:', e)
+          cleanup()
+          resolve(undefined)
+        }
+      })
+
+      video.addEventListener('seeked', () => {
+        try {
+          // 创建 canvas 并绘制视频帧
+          const canvas = document.createElement('canvas')
+          const aspectRatio = video.videoWidth / video.videoHeight
+
+          // 设置合理的缩略图尺寸
+          const maxWidth = 320
+          const maxHeight = 180
+
+          if (aspectRatio > maxWidth / maxHeight) {
+            canvas.width = maxWidth
+            canvas.height = maxWidth / aspectRatio
+          } else {
+            canvas.height = maxHeight
+            canvas.width = maxHeight * aspectRatio
+          }
+
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+            const thumbnail = canvas.toDataURL('image/jpeg', 0.7)
+            cleanup()
+            resolve(thumbnail)
+          } else {
+            cleanup()
+            resolve(undefined)
+          }
+        } catch (e) {
+          console.debug('Failed to capture video frame:', e)
+          cleanup()
+          resolve(undefined)
+        }
+      })
+
+      // 错误处理
+      video.addEventListener('error', () => {
+        console.debug('Video load error:', videoUrl)
+        cleanup()
+        resolve(undefined)
+      })
+
+      // 加载视频
+      video.src = videoUrl
+    })
+  } catch (error) {
+    console.debug('Failed to capture thumbnail for:', videoUrl, error)
+    return undefined
   }
 }
 
@@ -142,12 +260,18 @@ function sniffPageMedia(): MediaResource[] {
 
     if (url && !seenUrls.has(url) && isValidMediaUrl(url)) {
       seenUrls.add(url)
+
+      // 优先使用 poster 属性作为封面
+      const poster = video.poster || video.getAttribute('poster')
+      const thumbnail = poster && isValidMediaUrl(poster) ? poster : undefined
+
       resources.push({
         url,
         type: 'video',
         width: video.videoWidth || video.width || 0,
         height: video.videoHeight || video.height || 0,
-        alt: video.title || ''
+        alt: video.title || '',
+        thumbnail
       })
     }
 

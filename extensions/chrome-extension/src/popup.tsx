@@ -42,6 +42,7 @@ interface SniffedResource {
   width?: number
   height?: number
   alt?: string
+  thumbnail?: string  // 视频封面（base64）
 }
 
 const Popup: React.FC = () => {
@@ -79,7 +80,21 @@ const Popup: React.FC = () => {
       }
     }
 
+    // 监听后台生成的封面更新
+    const handleThumbnailUpdate = (message: any) => {
+      if (message.action === 'thumbnailGenerated') {
+        setSniffedResources((prevResources) =>
+          prevResources.map((resource) =>
+            resource.url === message.url && !resource.thumbnail
+              ? { ...resource, thumbnail: message.thumbnail }
+              : resource
+          )
+        )
+      }
+    }
+
     chrome.storage.onChanged.addListener(handleStorageChange)
+    chrome.runtime.onMessage.addListener(handleThumbnailUpdate)
 
     // 每 5 秒刷新当前 tab 的任务状态
     const interval = setInterval(() => {
@@ -88,6 +103,7 @@ const Popup: React.FC = () => {
 
     return () => {
       chrome.storage.onChanged.removeListener(handleStorageChange)
+      chrome.runtime.onMessage.removeListener(handleThumbnailUpdate)
       clearInterval(interval)
     }
   }, [activeTab])
@@ -116,12 +132,35 @@ const Popup: React.FC = () => {
               }
 
               if (response && response.resources && Array.isArray(response.resources)) {
-                // 合并已有资源和新资源（去重）
-                const existingUrls = new Set(existingResources.map((r: SniffedResource) => r.url))
-                const newResources = response.resources.filter(
-                  (r: SniffedResource) => !existingUrls.has(r.url)
+                // 智能合并资源：保留或更新 thumbnail
+                const existingResourcesMap = new Map(
+                  existingResources.map((r: SniffedResource) => [r.url, r])
                 )
-                const mergedResources = [...existingResources, ...newResources]
+
+                // 合并策略：
+                // 1. 如果是新 URL，直接添加
+                // 2. 如果 URL 已存在，优先使用新资源的 thumbnail（如果有），否则保留旧的 thumbnail
+                const mergedResources = response.resources.map((newResource: SniffedResource) => {
+                  const existingResource = existingResourcesMap.get(newResource.url)
+                  if (existingResource) {
+                    // URL 已存在，智能合并 thumbnail
+                    return {
+                      ...newResource,
+                      thumbnail: newResource.thumbnail || existingResource.thumbnail
+                    }
+                  }
+                  return newResource
+                })
+
+                // 添加只存在于旧资源中的项（可能是之前嗅探到但这次没扫到的）
+                existingResources.forEach((oldResource: SniffedResource) => {
+                  if (!response.resources.some((r: SniffedResource) => r.url === oldResource.url)) {
+                    mergedResources.push(oldResource)
+                  }
+                })
+
+                // 严格按照文件大小从大到小排序
+                mergedResources.sort((a: SniffedResource, b: SniffedResource) => (b.size || 0) - (a.size || 0))
 
                 // 保存合并后的资源到 storage（按 tabId）
                 chrome.storage.local.set({
@@ -395,7 +434,7 @@ const Popup: React.FC = () => {
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleManualDownload()
     }
@@ -620,7 +659,15 @@ const Popup: React.FC = () => {
                       {resource.type === 'image' && (
                         <img src={resource.url} alt={resource.alt || 'Image'} loading="lazy" />
                       )}
-                      {resource.type === 'video' && <span className="resource-icon">🎬</span>}
+                      {resource.type === 'video' && (
+                        resource.thumbnail ? (
+                          <div className="video-thumbnail-wrapper">
+                            <img src={resource.thumbnail} alt="Video thumbnail" />
+                          </div>
+                        ) : (
+                          <span className="resource-icon">🎬</span>
+                        )
+                      )}
                       {resource.type === 'audio' && <span className="resource-icon">🎵</span>}
                     </div>
                     <div className="sniffed-info">
@@ -724,7 +771,7 @@ const Popup: React.FC = () => {
               placeholder="输入下载链接..."
               value={downloadUrl}
               onChange={(e) => setDownloadUrl(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
               disabled={downloading}
             />
             <button
