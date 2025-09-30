@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Copy, AlertCircle, File, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { confirm } from '@/lib/confirm'
 
 interface TaskFile {
   path: string
@@ -265,9 +266,16 @@ export default function TaskDetailDialog({
           )}
           <Button
             variant="destructive"
-            onClick={() => {
-              // 简单的替换方案：双击删除或使用更友好的提示
-              if (window.confirm('确定要删除这个任务吗？此操作不可撤销。')) {
+            onClick={async () => {
+              if (!task) return
+              const confirmed = await confirm({
+                title: '确认删除',
+                description: '确定要删除这个任务吗？此操作不可撤销。',
+                confirmText: '删除',
+                cancelText: '取消',
+                variant: 'destructive',
+              })
+              if (confirmed) {
                 onDelete(task.id)
                 onOpenChange(false)
                 toast.success('任务已删除')

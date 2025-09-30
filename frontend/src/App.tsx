@@ -205,9 +205,38 @@ function App() {
         />
       </Routes>
       <Toaster
-        position="top-right"
+        position="top-center"
         toastOptions={{
-          className: 'bg-background text-foreground border',
+          className: 'bg-background text-foreground border shadow-lg',
+          style: {
+            minWidth: '280px',
+            maxWidth: '90vw',
+            padding: '16px',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+          duration: 3000,
+          success: {
+            className: 'bg-green-50 border-green-200 text-green-900',
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            className: 'bg-red-50 border-red-200 text-red-900',
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+          },
+          loading: {
+            className: 'bg-blue-50 border-blue-200 text-blue-900',
+            iconTheme: {
+              primary: '#3b82f6',
+              secondary: '#fff',
+            },
+          },
         }}
       />
     </Router>

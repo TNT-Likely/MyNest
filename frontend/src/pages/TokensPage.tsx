@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Switch } from '@/components/ui/switch'
 import { tokensApi, APIToken } from '@/lib/api'
 import { Plus, Copy, Trash2, Eye, EyeOff, Edit } from 'lucide-react'
+import { confirm } from '@/lib/confirm'
 
 export default function TokensPage() {
   const [tokens, setTokens] = useState<APIToken[]>([])
@@ -105,7 +106,15 @@ export default function TokensPage() {
   }
 
   const handleDelete = async (id: number, name: string) => {
-    if (!confirm(`确定要删除 Token "${name}" 吗？此操作不可撤销。`)) {
+    const confirmed = await confirm({
+      title: '确认删除',
+      description: `确定要删除 Token "${name}" 吗？此操作不可撤销。`,
+      confirmText: '删除',
+      cancelText: '取消',
+      variant: 'destructive',
+    })
+
+    if (!confirmed) {
       return
     }
 

@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import TaskProgress from '@/components/TaskProgress'
 import TaskDetailDialog from '@/components/TaskDetailDialog'
 import DownloaderStatus from '@/components/DownloaderStatus'
+import { confirm } from '@/lib/confirm'
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -169,10 +170,6 @@ export default function TasksPage() {
   }
 
   const handleClearFailed = async () => {
-    if (!confirm('确定要清除所有失败的任务吗？此操作不可撤销。')) {
-      return
-    }
-
     try {
       const response = await tasksApi.clearFailed()
       toast.success(response.data.message)
@@ -295,7 +292,23 @@ export default function TasksPage() {
               <span className="hidden sm:inline">筛选</span>
             </Button>
             {activeTab === 'completed' && (
-              <Button variant="outline" size="sm" onClick={handleClearFailed} className="hidden sm:flex">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  const confirmed = await confirm({
+                    title: '确认清理',
+                    description: '确定要清除所有失败的任务吗？此操作不可撤销。',
+                    confirmText: '清除',
+                    cancelText: '取消',
+                    variant: 'destructive',
+                  })
+                  if (confirmed) {
+                    handleClearFailed()
+                  }
+                }}
+                className="hidden sm:flex"
+              >
                 <Trash2 className="mr-2 h-4 w-4" />
                 清理失败任务
               </Button>
