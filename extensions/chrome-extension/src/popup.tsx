@@ -80,21 +80,7 @@ const Popup: React.FC = () => {
       }
     }
 
-    // 监听后台生成的封面更新
-    const handleThumbnailUpdate = (message: any) => {
-      if (message.action === 'thumbnailGenerated') {
-        setSniffedResources((prevResources) =>
-          prevResources.map((resource) =>
-            resource.url === message.url && !resource.thumbnail
-              ? { ...resource, thumbnail: message.thumbnail }
-              : resource
-          )
-        )
-      }
-    }
-
     chrome.storage.onChanged.addListener(handleStorageChange)
-    chrome.runtime.onMessage.addListener(handleThumbnailUpdate)
 
     // 每 5 秒刷新当前 tab 的任务状态
     const interval = setInterval(() => {
@@ -103,7 +89,6 @@ const Popup: React.FC = () => {
 
     return () => {
       chrome.storage.onChanged.removeListener(handleStorageChange)
-      chrome.runtime.onMessage.removeListener(handleThumbnailUpdate)
       clearInterval(interval)
     }
   }, [activeTab])
@@ -660,13 +645,16 @@ const Popup: React.FC = () => {
                         <img src={resource.url} alt={resource.alt || 'Image'} loading="lazy" />
                       )}
                       {resource.type === 'video' && (
-                        resource.thumbnail ? (
-                          <div className="video-thumbnail-wrapper">
-                            <img src={resource.thumbnail} alt="Video thumbnail" />
-                          </div>
-                        ) : (
-                          <span className="resource-icon">🎬</span>
-                        )
+                        <div className="video-preview-wrapper">
+                          <video
+                            src={resource.url}
+                            poster={resource.thumbnail}
+                            preload="metadata"
+                            muted
+                            playsInline
+                          />
+                          <div className="video-play-icon">▶</div>
+                        </div>
                       )}
                       {resource.type === 'audio' && <span className="resource-icon">🎵</span>}
                     </div>
