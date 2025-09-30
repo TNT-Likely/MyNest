@@ -8,7 +8,7 @@ import SystemLogs from './pages/SystemLogs'
 import TokensPage from './pages/TokensPage'
 import LoginPage from './pages/LoginPage'
 import { authApi, User } from './lib/api'
-import { LogOut, Menu, X } from 'lucide-react'
+import { LogOut, Menu } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from './components/ui/sheet'
 
@@ -38,30 +38,33 @@ function Navigation({ user, onLogout, onRefreshUser }: { user: User | null; onLo
 
   return (
     <nav className="border-b bg-card sticky top-0 z-50">
-      <div className="container mx-auto px-4">
+      <div className="w-full px-4">
         <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
-            <h1 className="text-xl font-bold">🪹 MyNest</h1>
-            <span className="hidden sm:inline text-sm text-muted-foreground">链接的归巢</span>
-          </Link>
+          {/* 左侧：品牌 + 导航 */}
+          <div className="flex items-center gap-8">
+            {/* Logo */}
+            <Link to="/" className="flex items-center space-x-2 flex-shrink-0">
+              <h1 className="text-xl font-bold">🪹 MyNest</h1>
+              <span className="hidden sm:inline text-sm text-muted-foreground">链接的归巢</span>
+            </Link>
 
-          {/* 桌面端导航 */}
-          <div className="hidden md:flex items-center space-x-6">
-            {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                  isActive(link.path) ? 'text-primary' : 'text-muted-foreground'
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {/* 桌面端导航 */}
+            <div className="hidden md:flex items-center space-x-6">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className={`text-sm font-medium transition-colors hover:text-primary whitespace-nowrap ${
+                    isActive(link.path) ? 'text-primary' : 'text-muted-foreground'
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
           </div>
 
-          {/* 用户信息和移动端菜单 */}
+          {/* 右侧：用户信息和移动端菜单 */}
           <div className="flex items-center space-x-2">
             {user && (
               <>

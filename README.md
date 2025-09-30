@@ -95,11 +95,17 @@ https://github.com/matrix/mynest/releases/latest
 
 <table>
   <tr>
-    <td width="70%">
+    <td width="50%">
       <img src="assets/preview/dashboard-pc.png" alt="PC端仪表盘" />
       <p align="center"><b>PC 端 - 任务管理与插件配置</b></p>
     </td>
-    <td width="30%">
+    <td width="50%">
+      <img src="assets/preview/plugin-telegram-setting.png" alt="Telegram插件配置" />
+      <p align="center"><b>Telegram Bot - 插件配置界面</b></p>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2">
       <img src="assets/preview/dashboard-mobile.png" alt="移动端适配" />
       <p align="center"><b>移动端 - 响应式适配</b></p>
     </td>
@@ -199,6 +205,8 @@ docker run -d \
    - 点击 Telegram Bot 配置按钮
    - 填入 Bot Token 和允许的用户 ID
    - 保存并启用插件
+
+   ![Telegram Bot 配置界面](assets/preview/plugin-telegram-setting.png)
 
 4. **开始使用**
    - 向你的 Bot 发送任何包含链接的消息
