@@ -8,11 +8,13 @@ import SystemLogs from './pages/SystemLogs'
 import TokensPage from './pages/TokensPage'
 import LoginPage from './pages/LoginPage'
 import { authApi, User } from './lib/api'
-import { LogOut } from 'lucide-react'
+import { LogOut, Menu, X } from 'lucide-react'
 import { Button } from './components/ui/button'
+import { Sheet, SheetContent, SheetTrigger } from './components/ui/sheet'
 
 function Navigation({ user, onLogout, onRefreshUser }: { user: User | null; onLogout: () => void; onRefreshUser: () => void }) {
   const location = useLocation()
+  const [open, setOpen] = useState(false)
 
   // 当路由变化时，检查是否需要刷新用户信息
   useEffect(() => {
@@ -26,74 +28,98 @@ function Navigation({ user, onLogout, onRefreshUser }: { user: User | null; onLo
     return location.pathname === path
   }
 
+  const navLinks = [
+    { path: '/', label: '下载任务' },
+    { path: '/plugins', label: '插件管理' },
+    { path: '/settings', label: '系统配置' },
+    { path: '/logs', label: '系统日志' },
+    { path: '/tokens', label: 'API Token' },
+  ]
+
   return (
-    <nav className="border-b bg-card">
+    <nav className="border-b bg-card sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
-          <div className="flex items-center space-x-8">
-            <div className="flex items-center space-x-2">
-              <h1 className="text-xl font-bold">🪹 MyNest</h1>
-              <span className="text-sm text-muted-foreground">链接的归巢</span>
-            </div>
-            <div className="flex items-center space-x-6">
+          {/* Logo */}
+          <Link to="/" className="flex items-center space-x-2">
+            <h1 className="text-xl font-bold">🪹 MyNest</h1>
+            <span className="hidden sm:inline text-sm text-muted-foreground">链接的归巢</span>
+          </Link>
+
+          {/* 桌面端导航 */}
+          <div className="hidden md:flex items-center space-x-6">
+            {navLinks.map((link) => (
               <Link
-                to="/"
+                key={link.path}
+                to={link.path}
                 className={`text-sm font-medium transition-colors hover:text-primary ${
-                  isActive('/') ? 'text-primary' : 'text-muted-foreground'
+                  isActive(link.path) ? 'text-primary' : 'text-muted-foreground'
                 }`}
               >
-                下载任务
+                {link.label}
               </Link>
-              <Link
-                to="/plugins"
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                  isActive('/plugins') ? 'text-primary' : 'text-muted-foreground'
-                }`}
-              >
-                插件管理
-              </Link>
-              <Link
-                to="/settings"
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                  isActive('/settings') ? 'text-primary' : 'text-muted-foreground'
-                }`}
-              >
-                系统配置
-              </Link>
-              <Link
-                to="/logs"
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                  isActive('/logs') ? 'text-primary' : 'text-muted-foreground'
-                }`}
-              >
-                系统日志
-              </Link>
-              <Link
-                to="/tokens"
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                  isActive('/tokens') ? 'text-primary' : 'text-muted-foreground'
-                }`}
-              >
-                API Token
-              </Link>
-            </div>
+            ))}
           </div>
-          <div className="flex items-center space-x-4">
+
+          {/* 用户信息和移动端菜单 */}
+          <div className="flex items-center space-x-2">
             {user && (
               <>
-                <span className="text-sm text-muted-foreground">
+                <span className="hidden sm:inline text-sm text-muted-foreground">
                   {user.username}
                 </span>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={onLogout}
+                  className="hidden sm:flex"
                 >
                   <LogOut className="w-4 h-4 mr-2" />
                   退出
                 </Button>
               </>
             )}
+
+            {/* 移动端汉堡菜单 */}
+            <Sheet open={open} onOpenChange={setOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="sm" className="md:hidden">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-64">
+                <div className="flex flex-col space-y-4 mt-8">
+                  {user && (
+                    <div className="pb-4 border-b">
+                      <p className="text-sm font-medium">{user.username}</p>
+                    </div>
+                  )}
+                  {navLinks.map((link) => (
+                    <Link
+                      key={link.path}
+                      to={link.path}
+                      onClick={() => setOpen(false)}
+                      className={`text-base font-medium transition-colors hover:text-primary py-2 ${
+                        isActive(link.path) ? 'text-primary' : 'text-muted-foreground'
+                      }`}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setOpen(false)
+                      onLogout()
+                    }}
+                    className="justify-start px-0 text-base font-medium text-muted-foreground hover:text-primary"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    退出
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </div>
@@ -159,9 +185,9 @@ function App() {
           path="/*"
           element={
             <ProtectedRoute>
-              <div className="min-h-screen bg-background">
+              <div className="min-h-screen bg-background overflow-x-hidden">
                 <Navigation user={user} onLogout={handleLogout} onRefreshUser={checkAuth} />
-                <main className="container mx-auto px-4 py-8">
+                <main className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-full">
                   <Routes>
                     <Route path="/" element={<TasksPage />} />
                     <Route path="/plugins" element={<PluginsPage />} />

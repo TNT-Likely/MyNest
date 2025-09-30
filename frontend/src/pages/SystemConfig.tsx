@@ -57,17 +57,17 @@ export default function SystemConfig() {
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
-      <h1 className="text-3xl font-bold mb-8">系统配置</h1>
+    <div className="w-full max-w-4xl mx-auto py-4 sm:py-8 space-y-6">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-8">系统配置</h1>
 
       <Card>
         <CardHeader>
-          <CardTitle>下载器配置</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-lg sm:text-xl">下载器配置</CardTitle>
+          <CardDescription className="text-sm">
             配置 aria2 下载器连接信息
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 overflow-hidden">
           <div className="space-y-2">
             <Label htmlFor="aria2Url">aria2 RPC 地址</Label>
             <Input
@@ -76,8 +76,8 @@ export default function SystemConfig() {
               onChange={(e) => setAria2Url(e.target.value)}
               placeholder="http://aria2:6800/jsonrpc"
             />
-            <p className="text-sm text-muted-foreground">
-              Docker 环境使用服务名: <code className="bg-muted px-1 py-0.5 rounded">http://aria2:6800/jsonrpc</code>
+            <p className="text-xs sm:text-sm text-muted-foreground break-all">
+              Docker 环境使用服务名: <code className="bg-muted px-1 py-0.5 rounded text-xs">http://aria2:6800/jsonrpc</code>
             </p>
           </div>
 
@@ -126,10 +126,10 @@ export default function SystemConfig() {
 
       <Card>
         <CardHeader>
-          <CardTitle>下载路径配置</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-lg sm:text-xl">下载路径配置</CardTitle>
+          <CardDescription className="text-sm">
             配置文件下载路径模板，支持以下变量：
-            <ul className="mt-2 space-y-1 text-sm">
+            <ul className="mt-2 space-y-1 text-xs sm:text-sm">
               <li><code className="bg-muted px-1 py-0.5 rounded">{'{plugin}'}</code> - 插件名称</li>
               <li><code className="bg-muted px-1 py-0.5 rounded">{'{date}'}</code> - 下载日期 (YYYY-MM-DD)</li>
               <li><code className="bg-muted px-1 py-0.5 rounded">{'{datetime}'}</code> - 下载日期时间 (YYYY-MM-DD_HH-MM-SS)</li>
@@ -138,7 +138,7 @@ export default function SystemConfig() {
             </ul>
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 overflow-hidden">
           <div className="space-y-2">
             <Label htmlFor="manualDownloadPath">手动下载路径</Label>
             <Input
@@ -147,11 +147,11 @@ export default function SystemConfig() {
               onChange={(e) => setManualDownloadPath(e.target.value)}
               placeholder="manual/{filename}"
             />
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               从 Web 界面手动添加的任务保存路径
             </p>
-            <p className="text-sm text-muted-foreground">
-              示例：<code className="bg-muted px-1 py-0.5 rounded">{manualDownloadPath}</code> → manual/video.mp4
+            <p className="text-xs sm:text-sm text-muted-foreground break-all">
+              示例：<code className="bg-muted px-1 py-0.5 rounded text-xs">{manualDownloadPath}</code> → manual/video.mp4
             </p>
           </div>
 
@@ -163,11 +163,11 @@ export default function SystemConfig() {
               onChange={(e) => setChromeExtensionPath(e.target.value)}
               placeholder="chrome/{filename}"
             />
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               通过 Chrome 插件添加的任务保存路径
             </p>
-            <p className="text-sm text-muted-foreground">
-              示例：<code className="bg-muted px-1 py-0.5 rounded">{chromeExtensionPath}</code> → chrome/video.mp4
+            <p className="text-xs sm:text-sm text-muted-foreground break-all">
+              示例：<code className="bg-muted px-1 py-0.5 rounded text-xs">{chromeExtensionPath}</code> → chrome/video.mp4
             </p>
           </div>
 
@@ -179,11 +179,11 @@ export default function SystemConfig() {
               onChange={(e) => setPathTemplate(e.target.value)}
               placeholder="{plugin}/{date}/{filename}"
             />
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Telegram Bot、RSS 等插件使用此模板（各插件可在插件配置页单独设置）
             </p>
-            <p className="text-sm text-muted-foreground">
-              示例：<code className="bg-muted px-1 py-0.5 rounded">{pathTemplate}</code> → telegram-bot/2025-09-30/video.mp4
+            <p className="text-xs sm:text-sm text-muted-foreground break-all">
+              示例：<code className="bg-muted px-1 py-0.5 rounded text-xs">{pathTemplate}</code> → telegram-bot/2025-09-30/video.mp4
             </p>
           </div>
 

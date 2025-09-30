@@ -92,15 +92,15 @@ export default function PluginsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-3xl font-bold tracking-tight">插件管理</h2>
+    <div className="space-y-4 sm:space-y-6">
+      <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">插件管理</h2>
 
       {plugins.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center">
-          <p className="text-muted-foreground">暂无已安装插件</p>
+        <div className="rounded-lg border border-dashed p-8 sm:p-12 text-center">
+          <p className="text-sm sm:text-base text-muted-foreground">暂无已安装插件</p>
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {plugins.map((plugin) => (
             <Card key={plugin.id}>
               <CardHeader>
@@ -128,12 +128,13 @@ export default function PluginsPage() {
                   版本: {plugin.version || 'unknown'}
                 </CardDescription>
               </CardHeader>
-              <CardFooter className="flex gap-2">
+              <CardFooter className="flex flex-col sm:flex-row gap-2">
                 {plugin.enabled && !plugin.running && (
                   <Button
                     onClick={() => handleStart(plugin)}
                     variant="default"
-                    className="flex-1"
+                    className="flex-1 w-full sm:w-auto"
+                    size="sm"
                   >
                     启动
                   </Button>
@@ -142,7 +143,8 @@ export default function PluginsPage() {
                   <Button
                     onClick={() => handleStop(plugin)}
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 w-full sm:w-auto"
+                    size="sm"
                   >
                     停止
                   </Button>
@@ -151,13 +153,14 @@ export default function PluginsPage() {
                   <Button
                     onClick={() => handleToggle(plugin)}
                     variant="default"
-                    className="flex-1"
+                    className="flex-1 w-full sm:w-auto"
+                    size="sm"
                   >
                     启用
                   </Button>
                 )}
                 {plugin.enabled && (
-                  <>
+                  <div className="flex gap-2 w-full sm:w-auto">
                     <Button
                       variant="outline"
                       size="icon"
@@ -166,6 +169,7 @@ export default function PluginsPage() {
                         setLogsOpen(true)
                       }}
                       title="查看日志"
+                      className="flex-1 sm:flex-initial"
                     >
                       <FileText className="h-4 w-4" />
                     </Button>
@@ -177,6 +181,7 @@ export default function PluginsPage() {
                         setConfigOpen(true)
                       }}
                       title="配置"
+                      className="flex-1 sm:flex-initial"
                     >
                       <Settings className="h-4 w-4" />
                     </Button>
@@ -185,18 +190,20 @@ export default function PluginsPage() {
                       size="icon"
                       onClick={() => handleRestart(plugin)}
                       title="重启"
+                      className="flex-1 sm:flex-initial"
                     >
                       <RotateCcw className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="destructive"
-                      size="icon"
+                      size="sm"
                       onClick={() => handleToggle(plugin)}
                       title="禁用"
+                      className="flex-1 sm:flex-initial text-xs"
                     >
                       禁用
                     </Button>
-                  </>
+                  </div>
                 )}
               </CardFooter>
             </Card>

@@ -124,38 +124,38 @@ const SystemLogs: React.FC = () => {
   }, [autoRefresh, level, category, lines])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* 统计信息 */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
           <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold">{stats.total_logs}</div>
-              <p className="text-sm text-muted-foreground">总日志数</p>
+            <CardContent className="p-3 sm:p-4">
+              <div className="text-xl sm:text-2xl font-bold">{stats.total_logs}</div>
+              <p className="text-xs sm:text-sm text-muted-foreground">总日志数</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-red-600">{stats.error_count}</div>
-              <p className="text-sm text-muted-foreground">错误</p>
+            <CardContent className="p-3 sm:p-4">
+              <div className="text-xl sm:text-2xl font-bold text-red-600">{stats.error_count}</div>
+              <p className="text-xs sm:text-sm text-muted-foreground">错误</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-yellow-600">{stats.warn_count}</div>
-              <p className="text-sm text-muted-foreground">警告</p>
+            <CardContent className="p-3 sm:p-4">
+              <div className="text-xl sm:text-2xl font-bold text-yellow-600">{stats.warn_count}</div>
+              <p className="text-xs sm:text-sm text-muted-foreground">警告</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-blue-600">{stats.info_count}</div>
-              <p className="text-sm text-muted-foreground">信息</p>
+            <CardContent className="p-3 sm:p-4">
+              <div className="text-xl sm:text-2xl font-bold text-blue-600">{stats.info_count}</div>
+              <p className="text-xs sm:text-sm text-muted-foreground">信息</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-gray-600">{stats.debug_count}</div>
-              <p className="text-sm text-muted-foreground">调试</p>
+            <CardContent className="p-3 sm:p-4">
+              <div className="text-xl sm:text-2xl font-bold text-gray-600">{stats.debug_count}</div>
+              <p className="text-xs sm:text-sm text-muted-foreground">调试</p>
             </CardContent>
           </Card>
         </div>
@@ -164,17 +164,17 @@ const SystemLogs: React.FC = () => {
       {/* 控制面板 */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Filter className="h-4 w-4 sm:h-5 sm:w-5" />
             日志筛选与控制
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">级别:</span>
+              <span className="text-xs sm:text-sm font-medium">级别:</span>
               <Select value={level} onValueChange={setLevel}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-24 sm:w-32 text-xs sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -188,9 +188,9 @@ const SystemLogs: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">分类:</span>
+              <span className="text-xs sm:text-sm font-medium">分类:</span>
               <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-24 sm:w-32 text-xs sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -203,9 +203,9 @@ const SystemLogs: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">行数:</span>
+              <span className="text-xs sm:text-sm font-medium">行数:</span>
               <Select value={lines.toString()} onValueChange={(v) => setLines(parseInt(v))}>
-                <SelectTrigger className="w-20">
+                <SelectTrigger className="w-16 sm:w-20 text-xs sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -222,26 +222,31 @@ const SystemLogs: React.FC = () => {
               disabled={loading}
               size="sm"
               variant="outline"
+              className="text-xs sm:text-sm"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              刷新
+              <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">刷新</span>
             </Button>
 
             <Button
               onClick={() => setAutoRefresh(!autoRefresh)}
               size="sm"
               variant={autoRefresh ? 'default' : 'outline'}
+              className="text-xs sm:text-sm"
             >
-              {autoRefresh ? '停止自动刷新' : '自动刷新'}
+              <span className="hidden sm:inline">{autoRefresh ? '停止自动刷新' : '自动刷新'}</span>
+              <span className="sm:hidden">{autoRefresh ? '停止' : '自动'}</span>
             </Button>
 
             <Button
               onClick={clearLogs}
               size="sm"
               variant="destructive"
+              className="text-xs sm:text-sm"
             >
-              <Trash2 className="h-4 w-4 mr-2" />
-              清空日志
+              <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+              <span className="hidden sm:inline">清空日志</span>
+              <span className="sm:hidden">清空</span>
             </Button>
           </div>
         </CardContent>
@@ -250,17 +255,17 @@ const SystemLogs: React.FC = () => {
       {/* 日志列表 */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             系统日志
             {logs && logs.length > 0 && (
-              <Badge variant="secondary">{logs.length} 条记录</Badge>
+              <Badge variant="secondary" className="text-xs">{logs.length} 条记录</Badge>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[600px]">
+          <ScrollArea className="h-[400px] sm:h-[600px]">
             {!logs || logs.length === 0 ? (
-              <div className="text-center text-muted-foreground py-8">
+              <div className="text-center text-muted-foreground py-8 text-xs sm:text-sm">
                 {loading ? '正在加载日志...' : '暂无日志记录'}
               </div>
             ) : (
@@ -268,11 +273,11 @@ const SystemLogs: React.FC = () => {
                 {logs.map((log, index) => (
                   <div
                     key={index}
-                    className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                    className="border rounded-lg p-2 sm:p-4 hover:bg-muted/50 transition-colors"
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="flex flex-col items-center gap-1">
-                        <Badge variant={getLevelColor(log.level)}>
+                    <div className="flex flex-col sm:flex-row items-start gap-2 sm:gap-3">
+                      <div className="flex sm:flex-col items-center gap-2 sm:gap-1 w-full sm:w-auto">
+                        <Badge variant={getLevelColor(log.level)} className="text-xs">
                           {log.level}
                         </Badge>
                         <div className={`px-2 py-1 rounded text-xs ${getCategoryColor(log.category)}`}>
@@ -280,16 +285,16 @@ const SystemLogs: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium text-sm">{log.message}</p>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
+                      <div className="flex-1 min-w-0 w-full">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 sm:gap-2">
+                          <p className="font-medium text-xs sm:text-sm break-words">{log.message}</p>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
                             {formatTimestamp(log.timestamp)}
                           </span>
                         </div>
 
                         {log.details && (
-                          <p className="text-sm text-muted-foreground mt-1 font-mono">
+                          <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-mono break-all">
                             {log.details}
                           </p>
                         )}
