@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Copy, AlertCircle, File, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { confirm } from '@/lib/confirm'
+import { copyToClipboard } from '@/lib/utils'
 
 interface TaskFile {
   path: string
@@ -65,12 +66,12 @@ export default function TaskDetailDialog({
 
   if (!task) return null
 
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
+  const handleCopy = async (text: string) => {
+    const success = await copyToClipboard(text)
+    if (success) {
       toast.success('已复制到剪贴板')
-    } catch (error) {
-      toast.error('复制失败')
+    } else {
+      toast.error('复制失败，请手动复制')
     }
   }
 
@@ -126,7 +127,7 @@ export default function TaskDetailDialog({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => copyToClipboard(task.url)}
+                onClick={() => handleCopy(task.url)}
               >
                 <Copy className="h-4 w-4" />
               </Button>
@@ -150,7 +151,7 @@ export default function TaskDetailDialog({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => copyToClipboard(task.file_path || '')}
+                  onClick={() => handleCopy(task.file_path || '')}
                   title="复制文件路径"
                 >
                   <Copy className="h-4 w-4" />
@@ -219,7 +220,7 @@ export default function TaskDetailDialog({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => copyToClipboard(file.path)}
+                      onClick={() => handleCopy(file.path)}
                       className="flex-shrink-0"
                     >
                       <Copy className="h-3 w-3" />

@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch'
 import { tokensApi, APIToken } from '@/lib/api'
 import { Plus, Copy, Trash2, Eye, EyeOff, Edit } from 'lucide-react'
 import { confirm } from '@/lib/confirm'
+import { copyToClipboard } from '@/lib/utils'
 
 export default function TokensPage() {
   const [tokens, setTokens] = useState<APIToken[]>([])
@@ -128,9 +129,13 @@ export default function TokensPage() {
     }
   }
 
-  const copyToken = (token: string) => {
-    navigator.clipboard.writeText(token)
-    toast.success('Token 已复制到剪贴板')
+  const handleCopyToken = async (token: string) => {
+    const success = await copyToClipboard(token)
+    if (success) {
+      toast.success('Token 已复制到剪贴板')
+    } else {
+      toast.error('复制失败，请手动复制')
+    }
   }
 
   const toggleTokenVisibility = (id: number) => {
@@ -180,7 +185,7 @@ export default function TokensPage() {
                 为 Chrome 扩展或其他应用创建一个 API Token
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 pt-4">
+            <div className="space-y-4 px-6 pb-6 pt-4">
               <div className="space-y-2">
                 <Label htmlFor="create-name">名称 *</Label>
                 <Input
@@ -291,7 +296,7 @@ export default function TokensPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => copyToken(token.token)}
+                          onClick={() => handleCopyToken(token.token)}
                         >
                           <Copy className="w-4 h-4" />
                         </Button>
@@ -317,7 +322,7 @@ export default function TokensPage() {
               更新 Token 的名称、描述或启用状态
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 pt-4">
+          <div className="space-y-4 px-6 pb-6 pt-4">
             <div className="space-y-2">
               <Label htmlFor="edit-name">名称 *</Label>
               <Input
