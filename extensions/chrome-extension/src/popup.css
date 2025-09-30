@@ -27,7 +27,7 @@ body {
 }
 
 .header {
-  background: linear-gradient(135deg, #8B4513 0%, #2563EB 100%);
+  background: #8B4513;
   color: white;
   padding: 16px;
   text-align: center;
@@ -118,7 +118,7 @@ body {
 
 .download-input:focus {
   outline: none;
-  border-color: #2563EB;
+  border-color: #8B4513;
 }
 
 .download-input::placeholder {
@@ -134,7 +134,7 @@ body {
   padding: 8px 16px;
   border: none;
   border-radius: 6px;
-  background: linear-gradient(135deg, #8B4513 0%, #2563EB 100%);
+  background: #8B4513;
   color: white;
   font-size: 13px;
   font-weight: 600;
@@ -175,7 +175,7 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #8B4513 0%, #2563EB 100%);
+  background: #8B4513;
   color: white;
 }
 
@@ -236,9 +236,9 @@ body {
 }
 
 .tab-button.active {
-  color: #2563EB;
+  color: #8B4513;
   background: white;
-  border-bottom-color: #2563EB;
+  border-bottom-color: #8B4513;
   font-weight: 600;
 }
 
@@ -258,7 +258,7 @@ body {
 }
 
 .loading-more {
-  color: #2563EB;
+  color: #8B4513;
 }
 
 .no-more {
@@ -271,7 +271,7 @@ body {
   margin: 8px 0;
   border: none;
   background: #f9fafb;
-  color: #2563EB;
+  color: #8B4513;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -281,7 +281,7 @@ body {
 
 .load-more-btn:hover {
   background: #f3f4f6;
-  color: #1e40af;
+  color: #6D3611;
 }
 
 .tasks-list {
@@ -346,8 +346,8 @@ body {
 }
 
 .status-active {
-  background: #dbeafe;
-  color: #1e40af;
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .status-completed {
@@ -385,7 +385,7 @@ body {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #8B4513 0%, #2563EB 100%);
+  background: #8B4513;
   transition: width 0.3s ease;
 }
 
@@ -398,7 +398,7 @@ body {
 
 .progress-percent {
   font-weight: 600;
-  color: #2563EB;
+  color: #8B4513;
 }
 
 .progress-speed {
@@ -426,14 +426,14 @@ body {
 
 .view-more-link {
   font-size: 12px;
-  color: #2563EB;
+  color: #8B4513;
   text-decoration: none;
   font-weight: 500;
   transition: color 0.2s;
 }
 
 .view-more-link:hover {
-  color: #1e40af;
+  color: #6D3611;
 }
 
 /* Sniffed Resources Section */
@@ -537,7 +537,7 @@ body {
   width: 16px;
   height: 16px;
   cursor: pointer;
-  accent-color: #2563EB;
+  accent-color: #8B4513;
 }
 
 .filter-checkbox span {
@@ -683,8 +683,8 @@ body {
   border-radius: 12px;
   font-weight: 600;
   text-transform: uppercase;
-  background: #dbeafe;
-  color: #1e40af;
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .preview-size {
@@ -768,7 +768,7 @@ body {
 }
 
 .preview-btn-primary {
-  background: linear-gradient(135deg, #8B4513 0%, #2563EB 100%);
+  background: #8B4513;
   color: white;
 }
 

@@ -6,7 +6,7 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #f9fafb;
   min-height: 100vh;
   padding: 20px;
 }
@@ -21,7 +21,7 @@ body {
 }
 
 .header {
-  background: linear-gradient(135deg, #8B4513 0%, #2563EB 100%);
+  background: #8B4513;
   color: white;
   padding: 30px;
   text-align: center;
@@ -128,7 +128,7 @@ button:disabled {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #8B4513 0%, #2563EB 100%);
+  background: #8B4513;
   color: white;
 }
 
