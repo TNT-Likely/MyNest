@@ -1,0 +1,26 @@
+{
+  "name": "mynest-chrome-extension",
+  "version": "1.0.0",
+  "description": "MyNest Chrome Extension built with React and Vite",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "icons": "node scripts/create-placeholder-icons.cjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.0.0-beta.25",
+    "@types/chrome": "^0.0.270",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "canvas": "^3.2.0",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.3"
+  }
+}

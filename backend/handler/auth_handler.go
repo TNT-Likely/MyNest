@@ -113,3 +113,13 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		"message": "密码修改成功",
 	})
 }
+
+// VerifyToken 验证 API Token 是否有效（用于 Chrome 扩展等客户端测试连接）
+func (h *AuthHandler) VerifyToken(c *gin.Context) {
+	// 如果能走到这里，说明 token 已经通过中间件验证
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"valid":   true,
+		"message": "Token is valid",
+	})
+}

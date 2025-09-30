@@ -216,10 +216,8 @@ func main() {
 		apiAuth.POST("/plugins/:name/restart", pluginHandler.RestartPlugin)
 		apiAuth.GET("/plugins/:name/logs", pluginHandler.GetPluginLogs)
 
-		// 任务管理（只读操作）
-		apiAuth.GET("/tasks", downloadHandler.ListTasks)
+		// 任务管理（管理操作，只在管理界面使用）
 		apiAuth.GET("/tasks/:id", downloadHandler.GetTask)
-		apiAuth.GET("/tasks/:id/progress", taskProgressHandler.GetProgress)
 		apiAuth.POST("/tasks/:id/retry", downloadHandler.RetryTask)
 		apiAuth.DELETE("/tasks/:id", downloadHandler.DeleteTask)
 		apiAuth.POST("/tasks/:id/pause", downloadHandler.PauseTask)
@@ -240,8 +238,15 @@ func main() {
 	apiAuthOrToken := r.Group("/api/v1")
 	apiAuthOrToken.Use(authMiddleware.RequireAuthOrToken())
 	{
+		// Token 验证（用于客户端测试连接）
+		apiAuthOrToken.GET("/verify-token", authHandler.VerifyToken)
+
 		// 提交下载任务（支持用户和插件）
 		apiAuthOrToken.POST("/download", downloadHandler.SubmitDownload)
+
+		// 任务查询（支持插件查看任务状态）
+		apiAuthOrToken.GET("/tasks", downloadHandler.ListTasks)
+		apiAuthOrToken.GET("/tasks/:id/progress", taskProgressHandler.GetProgress)
 	}
 
 	r.GET("/health", func(c *gin.Context) {

@@ -5,10 +5,10 @@ MyNest 下载助手是一个 Chrome 浏览器扩展，让您可以通过右键�
 ## ✨ 功能特性
 
 - 🖱️ **右键下载**：在任何链接、图片、视频、音频上右键，选择"添加到 MyNest 下载"
-- 📄 **页面下载**：在页面上右键，选择"下载当前页面到 MyNest"
+- 📝 **选中下载**：选中包含链接的文本，右键快速下载
+- ⌨️ **手动输入**：在 popup 输入框直接粘贴链接下载
+- 📊 **任务管理**：查看下载进度、状态，支持分类筛选
 - 🔒 **安全认证**：使用 API Token 进行认证，保护您的下载服务
-- 🎨 **友好界面**：简洁优雅的配置和弹出界面
-- 📊 **实时状态**：在弹出窗口查看连接状态
 
 ## 📦 安装步骤
 
@@ -22,11 +22,33 @@ MyNest 下载助手是一个 Chrome 浏览器扩展，让您可以通过右键�
 
 ### 2. 安装 Chrome 扩展
 
-1. 打开 Chrome 浏览器
-2. 访问 `chrome://extensions/`
-3. 打开右上角的「开发者模式」
-4. 点击「加载已解压的扩展程序」
-5. 选择本目录（`extensions/chrome-extension`）
+#### 开发模式安装
+
+1. 进入扩展目录并安装依赖：
+   ```bash
+   cd extensions/chrome-extension
+   pnpm install
+   ```
+
+2. 启动开发服务器（支持热更新）：
+   ```bash
+   pnpm dev
+   ```
+
+3. 打开 Chrome 浏览器，访问 `chrome://extensions/`
+4. 打开右上角的「开发者模式」
+5. 点击「加载已解压的扩展程序」
+6. 选择 `extensions/chrome-extension/dist` 目录
+
+#### 生产构建安装
+
+1. 构建扩展：
+   ```bash
+   cd extensions/chrome-extension
+   pnpm build
+   ```
+
+2. 在 `chrome://extensions/` 加载 `dist` 目录
 
 ### 3. 配置扩展
 
@@ -46,32 +68,62 @@ MyNest 下载助手是一个 Chrome 浏览器扩展，让您可以通过右键�
 2. 选择「添加到 MyNest 下载」
 3. 等待通知确认任务已添加
 
-### 方式二：下载当前页面
+### 方式二：选中文本下载
 
-1. 在页面空白处右键
-2. 选择「下载当前页面到 MyNest」
+1. 选中包含下载链接的文本（如：`https://example.com/file.zip`）
+2. 右键选择「下载选中的链接到 MyNest」
+3. 自动提取并下载链接
 
 ### 方式三：通过弹出窗口
 
 1. 点击扩展图标打开弹出窗口
-2. 点击「下载当前页面」按钮
-3. 查看连接状态和快捷操作
+2. 查看最近的下载任务和进度
+3. 快速访问设置或 MyNest 管理面板
 
 ## 🔧 技术架构
+
+### 技术栈
+
+- **Framework**: React 18 + TypeScript
+- **Build Tool**: Vite + @crxjs/vite-plugin
+- **Chrome APIs**: Manifest V3
+- **热更新**: 开发时支持 HMR
 
 ### 文件结构
 
 ```
 chrome-extension/
-├── manifest.json       # 扩展清单文件
-├── background.js       # 后台脚本（处理右键菜单和API调用）
-├── popup.html          # 弹出窗口界面
-├── popup.js            # 弹出窗口脚本
-├── options.html        # 配置页面界面
-├── options.js          # 配置页面脚本
-├── icons/              # 图标文件
-└── README.md           # 说明文档
+├── src/
+│   ├── background.ts      # Service Worker (TypeScript)
+│   ├── popup.tsx          # Popup React 组件
+│   ├── popup.html         # Popup HTML 入口
+│   ├── popup.css          # Popup 样式
+│   ├── options.tsx        # Options React 组件
+│   ├── options.html       # Options HTML 入口
+│   ├── options.css        # Options 样式
+│   └── vite-env.d.ts      # Vite 类型定义
+├── icons/                 # 扩展图标
+├── manifest.json          # Manifest V3 配置
+├── vite.config.ts         # Vite 配置
+├── tsconfig.json          # TypeScript 配置
+├── package.json           # 项目依赖
+└── README.md              # 说明文档
 ```
+
+### 开发命令
+
+```bash
+# 安装依赖
+pnpm install
+
+# 开发模式（支持热更新）
+pnpm dev
+
+# 生产构建
+pnpm build
+```
+
+开发模式下，修改代码会自动重新编译，无需手动刷新扩展。
 
 ### API 调用
 
@@ -108,7 +160,7 @@ Body:
 
 **图标设计建议**：
 - 使用 MyNest 品牌色（棕色 #8B4513 + 蓝色 #2563EB）
-- 简洁的鸟巢或家的图标
+- 主题：鸟巢 🪹（链接的归巢）
 - 确保在浅色和深色背景下都清晰可见
 
 ## 🐛 故障排除
