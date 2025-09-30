@@ -66,7 +66,11 @@ export default function TaskDetailDialog({
 
   if (!task) return null
 
-  const handleCopy = async (text: string) => {
+  const handleCopy = async (text: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
     const success = await copyToClipboard(text)
     if (success) {
       toast.success('已复制到剪贴板')
@@ -127,7 +131,7 @@ export default function TaskDetailDialog({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleCopy(task.url)}
+                onClick={(e) => handleCopy(task.url, e)}
               >
                 <Copy className="h-4 w-4" />
               </Button>
@@ -151,7 +155,7 @@ export default function TaskDetailDialog({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleCopy(task.file_path || '')}
+                  onClick={(e) => handleCopy(task.file_path || '', e)}
                   title="复制文件路径"
                 >
                   <Copy className="h-4 w-4" />
@@ -220,7 +224,7 @@ export default function TaskDetailDialog({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleCopy(file.path)}
+                      onClick={(e) => handleCopy(file.path, e)}
                       className="flex-shrink-0"
                     >
                       <Copy className="h-3 w-3" />
