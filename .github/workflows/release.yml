@@ -18,10 +18,10 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  build-backend:
     runs-on: ubuntu-latest
     concurrency:
-      group: mynest-build-${{ github.workflow }}-${{ github.ref || github.run_id }}
+      group: mynest-backend-${{ github.workflow }}-${{ github.ref || github.run_id }}
       cancel-in-progress: true
     steps:
       - name: Checkout
@@ -59,6 +59,27 @@ jobs:
           go mod download
           CGO_ENABLED=0 GOOS=linux go build -o mynest ./backend/main.go
 
+  build-extension:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: mynest-extension-${{ github.workflow }}-${{ github.ref || github.run_id }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
       - name: Determine version for extension
         id: ext_version
         shell: bash
@@ -83,7 +104,7 @@ jobs:
       - name: Install Chrome extension dependencies
         run: |
           cd extensions/chrome-extension
-          pnpm install --frozen-lockfile
+          pnpm install --no-frozen-lockfile
 
       - name: Build Chrome extension
         run: |
@@ -103,7 +124,7 @@ jobs:
           retention-days: 30
 
   release:
-    needs: build
+    needs: [build-backend, build-extension]
     runs-on: ubuntu-latest
     permissions:
       contents: write
