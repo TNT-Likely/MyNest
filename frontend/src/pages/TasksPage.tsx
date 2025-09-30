@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Plus, RefreshCw, MoreVertical, Filter, Trash2, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { tasksApi, Task, TaskQueryParams } from '../lib/api'
+import api, { tasksApi, Task, TaskQueryParams } from '../lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -16,7 +16,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import TaskProgress from '@/components/TaskProgress'
 import TaskDetailDialog from '@/components/TaskDetailDialog'
 import DownloaderStatus from '@/components/DownloaderStatus'
-import axios from 'axios'
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -110,17 +109,19 @@ export default function TasksPage() {
 
     setSubmitting(true)
     try {
-      await axios.post('/api/v1/download', {
+      await api.post('/download', {
         url: url.trim(),
-        plugin: 'web',
+        plugin_name: 'web',
+        category: 'manual'
       })
       setUrl('')
       setOpen(false)
       toast.success('✅ 已归巢')
       await loadTasks()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to submit download:', error)
-      toast.error('提交失败，请重试')
+      const errorMsg = error.response?.data?.error || '提交失败，请重试'
+      toast.error(errorMsg)
     } finally {
       setSubmitting(false)
     }

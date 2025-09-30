@@ -99,16 +99,24 @@ jobs:
         run: |
           set -euo pipefail
           PREV_TAG="${{ steps.vars.outputs.prev_tag }}"
+
+          echo "Current tag: v${{ steps.vars.outputs.version }}"
+          echo "Previous tag: ${PREV_TAG:-none}"
+
           if [[ -n "$PREV_TAG" ]]; then
-            RANGE="$PREV_TAG..HEAD"
+            echo "Generating commit log from $PREV_TAG to HEAD"
+            COMMITS=$(git log --no-merges --pretty=format:'- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))' "$PREV_TAG"..HEAD)
           else
-            RANGE=""
+            echo "No previous tag found, showing recent commits (last 20)"
+            COMMITS=$(git log --no-merges --pretty=format:'- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))' -n 20)
           fi
-          echo "Collecting commits in range: ${RANGE:-FULL HISTORY}"
-          LOG=$(git log --no-merges --pretty=format:'- %s ([%h](https://github.com/${{ github.repository }}/commit/%H))' $RANGE)
-          echo "log<<EOF" >> $GITHUB_OUTPUT
-          echo "$LOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+
+          # 输出到 GITHUB_OUTPUT
+          {
+            echo "log<<EOF"
+            echo "$COMMITS"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -136,47 +144,9 @@ jobs:
           tag_name: v${{ steps.vars.outputs.version }}
           name: v${{ steps.vars.outputs.version }}
           body: |
-            ## 🚀 Docker Image
-
-            **MyNest All-in-One（前端 + 后端 + 所有插件）:**
-            ```bash
-            docker pull ${{ vars.DOCKERHUB_USERNAME }}/mynest:${{ steps.vars.outputs.version }}
-            ```
-
-            ## 📦 快速部署
-
-            ```bash
-            # 下载配置文件
-            wget https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
-            wget https://raw.githubusercontent.com/${{ github.repository }}/main/.env.example -O .env
-
-            # 编辑配置（修改密码等）
-            nano .env
-
-            # 启动服务
-            docker-compose up -d
-            ```
-
-            ## 🔗 访问应用
-
-            - Web 界面: http://localhost:3000
-            - 自动代理前后端，无需单独访问后端 API
-            - 健康检查: http://localhost:3000/health
-
-            ## ✨ 架构特点
-
-            - **一个镜像包含所有服务**：Nginx + React 前端 + Go 后端 + 插件
-            - **单端口访问**：只需暴露 3000 端口
-            - **自动代理**：Nginx 处理 `/api/*` 到后端的代理
-            - **生产就绪**：包含日志、健康检查、进程管理
-
             ## 📝 变更记录
 
             ${{ steps.changelog.outputs.log }}
-
-            ---
-
-            完整文档: https://github.com/${{ github.repository }}/blob/main/README.md
           prerelease: ${{ github.event.inputs.prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

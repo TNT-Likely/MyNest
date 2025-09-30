@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/matrix/mynest/backend/downloader"
 	"github.com/matrix/mynest/backend/handler"
+	"github.com/matrix/mynest/backend/middleware"
 	"github.com/matrix/mynest/backend/model"
 	"github.com/matrix/mynest/backend/plugin"
 	"github.com/matrix/mynest/backend/service"
@@ -47,10 +48,62 @@ func main() {
 		log.Fatalf("Failed to initialize aria2 client: %v", err)
 	}
 
+	// JWT密钥配置
+	jwtSecret := viper.GetString("auth.jwt_secret")
+	if jwtSecret == "" {
+		jwtSecret = "mynest-default-secret-change-in-production"
+		log.Printf("WARNING: Using default JWT secret, please set auth.jwt_secret in config")
+	}
+
+	// 创建认证服务并初始化默认用户（在任何其他启动逻辑之前）
+	authService := service.NewAuthService(db, jwtSecret)
+
+	// 初始化默认用户
+	ctx := context.Background()
+	defaultPassword := viper.GetString("auth.default_password")
+	password, isNewUser, err := authService.InitializeDefaultUser(ctx, defaultPassword)
+	var displayPassword string
+	if err != nil {
+		log.Printf("Failed to initialize default user: %v", err)
+	} else if password != "" {
+		displayPassword = password
+		// 根据是否为新用户显示不同的消息
+		if isNewUser {
+			log.Printf("\n" +
+				"=================================================================\n" +
+				"  🔐 默认管理员账号已创建\n" +
+				"  用户名: admin\n" +
+				"  密码: %s\n" +
+				"  ⚠️  请立即登录并修改密码！\n" +
+				"=================================================================\n",
+				password)
+		} else {
+			// 用户已存在但有配置的密码
+			log.Printf("\n" +
+				"=================================================================\n" +
+				"  🔐 管理员登录信息\n" +
+				"  用户名: admin\n" +
+				"  密码: %s (来自配置文件)\n" +
+				"=================================================================\n",
+				password)
+		}
+	} else {
+		// 用户已存在且没有配置密码
+		log.Printf("\n" +
+			"=================================================================\n" +
+			"  ℹ️  管理员账号已存在\n" +
+			"  用户名: admin\n" +
+			"  如需重置密码，请运行: ./scripts/reset-password.sh\n" +
+			"  或在配置文件中设置 auth.default_password\n" +
+			"=================================================================\n")
+	}
+
 	pluginManager := plugin.NewManager(db)
 	pluginRunner := plugin.NewPluginRunner(db)
 	pluginService := service.NewPluginService(pluginManager, pluginRunner)
 	systemConfigService := service.NewSystemConfigService(db)
+	tokenService := service.NewTokenService(db)
+	authMiddleware := middleware.NewAuthMiddleware(db, authService)
 
 	// 启动插件健康检查器
 	pluginManager.StartHealthChecker()
@@ -69,7 +122,6 @@ func main() {
 	downloadService := service.NewDownloadService(db, aria2Client)
 
 	// 添加一些测试日志
-	ctx := context.Background()
 	logsService.AddLog(ctx, "INFO", "system", "MyNest 系统启动", "Core service started successfully", "Main")
 	logsService.AddLog(ctx, "DEBUG", "system", "数据库连接成功", "Connected to PostgreSQL database", "Database")
 	logsService.AddLog(ctx, "INFO", "plugin", "插件管理器初始化完成", "", "PluginManager")
@@ -104,6 +156,17 @@ func main() {
 	systemConfigHandler := handler.NewSystemConfigHandler(systemConfigService)
 	logsHandler := handler.NewLogsHandler(logsService)
 	taskProgressHandler := handler.NewTaskProgressHandler(downloadService)
+	tokenHandler := handler.NewTokenHandler(tokenService)
+	authHandler := handler.NewAuthHandler(authService)
+
+	// 如果有密码，记录到日志系统
+	if displayPassword != "" {
+		if isNewUser {
+			logsService.AddLog(ctx, "WARN", "security", "默认管理员账号已创建", fmt.Sprintf("Username: admin, Password: %s", displayPassword), "Auth")
+		} else {
+			logsService.AddLog(ctx, "INFO", "security", "管理员密码提示", fmt.Sprintf("Username: admin, Password: %s (from config)", displayPassword), "Auth")
+		}
+	}
 
 	r := gin.Default()
 
@@ -120,31 +183,60 @@ func main() {
 
 	api := r.Group("/api/v1")
 	{
-		api.GET("/plugins", pluginHandler.ListPlugins)
-		api.POST("/plugins/:name/enable", pluginHandler.EnablePlugin)
-		api.POST("/plugins/:name/disable", pluginHandler.DisablePlugin)
-		api.POST("/plugins/:name/start", pluginHandler.StartPlugin)
-		api.POST("/plugins/:name/stop", pluginHandler.StopPlugin)
-		api.POST("/plugins/:name/restart", pluginHandler.RestartPlugin)
-		api.GET("/plugins/:name/logs", pluginHandler.GetPluginLogs)
+		// 登录接口（不需要认证）
+		api.POST("/auth/login", authHandler.Login)
+	}
 
-		api.POST("/download", downloadHandler.SubmitDownload)
-		api.GET("/tasks", downloadHandler.ListTasks)
-		api.GET("/tasks/:id", downloadHandler.GetTask)
-		api.GET("/tasks/:id/progress", taskProgressHandler.GetProgress)
-		api.POST("/tasks/:id/retry", downloadHandler.RetryTask)
-		api.DELETE("/tasks/:id", downloadHandler.DeleteTask)
-		api.POST("/tasks/:id/pause", downloadHandler.PauseTask)
-		api.DELETE("/tasks/failed", downloadHandler.ClearFailedTasks)
+	// 需要用户认证的API（管理界面）
+	apiAuth := r.Group("/api/v1")
+	apiAuth.Use(authMiddleware.RequireAuth())
+	{
+		// 用户信息
+		apiAuth.GET("/auth/me", authHandler.GetCurrentUser)
+		apiAuth.POST("/auth/change-password", authHandler.ChangePassword)
 
-		api.GET("/downloader/status", downloadHandler.CheckDownloaderStatus)
+		// Token 管理 API
+		apiAuth.GET("/tokens", tokenHandler.ListTokens)
+		apiAuth.POST("/tokens", tokenHandler.CreateToken)
+		apiAuth.GET("/tokens/:id", tokenHandler.GetToken)
+		apiAuth.PUT("/tokens/:id", tokenHandler.UpdateToken)
+		apiAuth.DELETE("/tokens/:id", tokenHandler.DeleteToken)
 
-		api.GET("/system/configs", systemConfigHandler.GetAllConfigs)
-		api.POST("/system/configs", systemConfigHandler.UpdateConfig)
+		// 插件管理
+		apiAuth.GET("/plugins", pluginHandler.ListPlugins)
+		apiAuth.POST("/plugins/:name/enable", pluginHandler.EnablePlugin)
+		apiAuth.POST("/plugins/:name/disable", pluginHandler.DisablePlugin)
+		apiAuth.POST("/plugins/:name/start", pluginHandler.StartPlugin)
+		apiAuth.POST("/plugins/:name/stop", pluginHandler.StopPlugin)
+		apiAuth.POST("/plugins/:name/restart", pluginHandler.RestartPlugin)
+		apiAuth.GET("/plugins/:name/logs", pluginHandler.GetPluginLogs)
 
-		api.GET("/system/logs", logsHandler.GetLogs)
-		api.DELETE("/system/logs", logsHandler.ClearLogs)
-		api.GET("/system/logs/stats", logsHandler.GetLogStats)
+		// 任务管理（只读操作）
+		apiAuth.GET("/tasks", downloadHandler.ListTasks)
+		apiAuth.GET("/tasks/:id", downloadHandler.GetTask)
+		apiAuth.GET("/tasks/:id/progress", taskProgressHandler.GetProgress)
+		apiAuth.POST("/tasks/:id/retry", downloadHandler.RetryTask)
+		apiAuth.DELETE("/tasks/:id", downloadHandler.DeleteTask)
+		apiAuth.POST("/tasks/:id/pause", downloadHandler.PauseTask)
+		apiAuth.DELETE("/tasks/failed", downloadHandler.ClearFailedTasks)
+
+		apiAuth.GET("/downloader/status", downloadHandler.CheckDownloaderStatus)
+
+		// 系统配置
+		apiAuth.GET("/system/configs", systemConfigHandler.GetAllConfigs)
+		apiAuth.POST("/system/configs", systemConfigHandler.UpdateConfig)
+
+		apiAuth.GET("/system/logs", logsHandler.GetLogs)
+		apiAuth.DELETE("/system/logs", logsHandler.ClearLogs)
+		apiAuth.GET("/system/logs/stats", logsHandler.GetLogStats)
+	}
+
+	// 需要用户认证或API Token认证的接口（支持管理界面和扩展插件）
+	apiAuthOrToken := r.Group("/api/v1")
+	apiAuthOrToken.Use(authMiddleware.RequireAuthOrToken())
+	{
+		// 提交下载任务（支持用户和插件）
+		apiAuthOrToken.POST("/download", downloadHandler.SubmitDownload)
 	}
 
 	r.GET("/health", func(c *gin.Context) {

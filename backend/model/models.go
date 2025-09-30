@@ -39,3 +39,23 @@ type DownloadTask struct {
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 }
 
+type APIToken struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	Name        string    `gorm:"not null" json:"name"`
+	Token       string    `gorm:"uniqueIndex;not null" json:"token"`
+	Description string    `gorm:"type:text" json:"description,omitempty"`
+	Enabled     bool      `gorm:"default:true" json:"enabled"`
+	LastUsedAt  *time.Time `json:"last_used_at,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type User struct {
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	Username     string    `gorm:"uniqueIndex;not null" json:"username"`
+	PasswordHash string    `gorm:"not null" json:"-"`
+	IsAdmin      bool      `gorm:"default:true" json:"is_admin"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
+import api from '@/lib/api'
 
 interface DownloaderStatusData {
   connected: boolean
@@ -14,11 +15,20 @@ export default function DownloaderStatus() {
 
   const checkStatus = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/v1/downloader/status')
-      const data = await response.json()
-      setStatus(data)
-    } catch (error) {
-      setStatus({ connected: false, error: '无法连接到后端服务' })
+      const response = await api.get('/downloader/status')
+      const data = response.data
+
+      setStatus({
+        connected: data.connected || false,
+        version: data.status?.version,
+        error: data.error
+      })
+    } catch (error: any) {
+      console.error('Failed to check downloader status:', error)
+      setStatus({
+        connected: false,
+        error: error.response?.data?.error || '无法连接到下载器'
+      })
     } finally {
       setLoading(false)
     }

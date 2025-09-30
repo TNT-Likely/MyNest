@@ -20,3 +20,7 @@ aria2:
 
 download:
   save_path: /downloads
+
+auth:
+  jwt_secret: ""  # JWT密钥，留空则使用默认值（不推荐）
+  default_password: ""  # 默认管理员密码，留空则自动生成
