@@ -507,12 +507,40 @@ func (s *DownloadService) detectFilenameByContentType(ctx context.Context, urlSt
 		return ""
 	}
 
-	if len(exts) == 0 {
-		log.Printf("[Download] ⚠️  Content-Type '%s' 没有对应的扩展名", contentType)
-		return ""
-	}
+	var ext string
+	if len(exts) > 0 {
+		ext = exts[0] // 使用第一个扩展名
+		log.Printf("[Download] 📋 从系统 MIME 数据库获取扩展名: %s", ext)
+	} else {
+		// Fallback: 常见 MIME 类型的硬编码映射（Alpine 环境可能缺少 /etc/mime.types）
+		commonTypes := map[string]string{
+			"video/mp4":        ".mp4",
+			"video/mpeg":       ".mpeg",
+			"video/webm":       ".webm",
+			"video/x-matroska": ".mkv",
+			"video/quicktime":  ".mov",
+			"audio/mpeg":       ".mp3",
+			"audio/wav":        ".wav",
+			"audio/ogg":        ".ogg",
+			"image/jpeg":       ".jpg",
+			"image/png":        ".png",
+			"image/gif":        ".gif",
+			"image/webp":       ".webp",
+			"image/svg+xml":    ".svg",
+			"application/pdf":  ".pdf",
+			"application/zip":  ".zip",
+			"text/plain":       ".txt",
+			"text/html":        ".html",
+		}
 
-	ext := exts[0] // 使用第一个扩展名
+		if fallbackExt, ok := commonTypes[contentType]; ok {
+			ext = fallbackExt
+			log.Printf("[Download] 📋 使用 fallback 扩展名映射: %s -> %s", contentType, ext)
+		} else {
+			log.Printf("[Download] ⚠️  Content-Type '%s' 没有对应的扩展名（系统和 fallback 都未找到）", contentType)
+			return ""
+		}
+	}
 	timestamp := time.Now().Unix()
 	filename := fmt.Sprintf("file_%d%s", timestamp, ext)
 	log.Printf("[Download] ✅ 检测成功: Content-Type=%s, 扩展名=%s, 文件名=%s", contentType, ext, filename)

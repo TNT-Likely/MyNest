@@ -32,7 +32,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o telegram-bot ./plugins/telegram-bot
 
 FROM alpine:latest
 
-RUN apk --no-cache add ca-certificates tzdata nginx supervisor
+RUN apk --no-cache add ca-certificates tzdata nginx supervisor mailcap
 
 WORKDIR /app
 
@@ -75,6 +75,8 @@ EOF
 COPY --from=frontend-builder /app/dist /usr/share/nginx/html
 
 ENV TZ=Asia/Shanghai
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 EXPOSE 80
 
