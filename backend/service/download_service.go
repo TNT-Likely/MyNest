@@ -438,13 +438,39 @@ func (s *DownloadService) extractFilenameFromURL(urlStr string) string {
 }
 
 func (s *DownloadService) detectFilenameByContentType(ctx context.Context, urlStr string) string {
-	// 发送 HEAD 请求获取 Content-Type
-	resp, err := http.Head(urlStr)
+	// 创建支持重定向的 HTTP 客户端（使用默认 Transport 以支持代理）
+	client := &http.Client{
+		Timeout:   10 * time.Second,
+		Transport: http.DefaultTransport, // 自动从环境变量读取 HTTP_PROXY/HTTPS_PROXY
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			// 最多跟随 10 次重定向
+			if len(via) >= 10 {
+				return fmt.Errorf("stopped after 10 redirects")
+			}
+			return nil
+		},
+	}
+
+	// 发送 HEAD 请求获取 Content-Type（跟随重定向）
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, urlStr, nil)
+	if err != nil {
+		log.Printf("[Download] Failed to create HEAD request: %v", err)
+		return ""
+	}
+
+	// 添加常见的请求头，避免某些服务器拒绝 HEAD 请求
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	req.Header.Set("Accept", "*/*")
+
+	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("[Download] Failed to HEAD request: %v", err)
 		return ""
 	}
 	defer resp.Body.Close()
+
+	log.Printf("[Download] HEAD request for %s: status=%d, content-type=%s, final-url=%s",
+		urlStr, resp.StatusCode, resp.Header.Get("Content-Type"), resp.Request.URL.String())
 
 	// 从 Content-Type 获取扩展名
 	contentType := resp.Header.Get("Content-Type")
