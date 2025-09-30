@@ -27,10 +27,11 @@ interface Task {
 }
 
 interface TaskProgress {
-  completedLength: string
-  totalLength: string
-  downloadSpeed: string
+  completed_length: number
+  total_length: number
+  download_speed: number
   progress: number
+  status: string
 }
 
 type TaskTab = 'active' | 'completed' | 'failed'
@@ -366,15 +367,9 @@ const Popup: React.FC = () => {
       return
     }
 
-    // 验证 URL 格式
-    try {
-      const urlObj = new URL(url)
-      if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
-        alert('请输入有效的 HTTP/HTTPS 链接')
-        return
-      }
-    } catch (error) {
-      alert('链接格式不正确，请输入有效的 HTTP/HTTPS 链接')
+    // 验证 URL 格式（支持 HTTP/HTTPS/Magnet）
+    if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('magnet:')) {
+      alert('请输入有效的 HTTP/HTTPS 链接或 Magnet 链接')
       return
     }
 
@@ -725,10 +720,10 @@ const Popup: React.FC = () => {
                       </div>
                       <div className="progress-info">
                         <span className="progress-percent">{taskProgresses[task.id].progress?.toFixed(1)}%</span>
-                        <span className="progress-speed">{formatSpeed(taskProgresses[task.id].downloadSpeed)}</span>
+                        <span className="progress-speed">{formatSpeed(taskProgresses[task.id].download_speed.toString())}</span>
                         <span className="progress-size">
-                          {formatFileSize(taskProgresses[task.id].completedLength)} /{' '}
-                          {formatFileSize(taskProgresses[task.id].totalLength)}
+                          {formatFileSize(taskProgresses[task.id].completed_length.toString())} /{' '}
+                          {formatFileSize(taskProgresses[task.id].total_length.toString())}
                         </span>
                       </div>
                     </div>
