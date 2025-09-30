@@ -438,6 +438,8 @@ func (s *DownloadService) extractFilenameFromURL(urlStr string) string {
 }
 
 func (s *DownloadService) detectFilenameByContentType(ctx context.Context, urlStr string) string {
+	log.Printf("[Download] 🔍 开始检测文件类型: %s", urlStr)
+
 	// 创建支持重定向的 HTTP 客户端（使用默认 Transport 以支持代理）
 	client := &http.Client{
 		Timeout:   10 * time.Second,
@@ -445,54 +447,76 @@ func (s *DownloadService) detectFilenameByContentType(ctx context.Context, urlSt
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			// 最多跟随 10 次重定向
 			if len(via) >= 10 {
+				log.Printf("[Download] ⚠️  重定向次数超过 10 次")
 				return fmt.Errorf("stopped after 10 redirects")
 			}
+			log.Printf("[Download] 🔄 跟随重定向 (#%d): %s", len(via), req.URL.String())
 			return nil
 		},
 	}
+	log.Printf("[Download] ✅ HTTP 客户端创建成功（超时: 10s，代理: %v）", http.DefaultTransport)
 
 	// 发送 HEAD 请求获取 Content-Type（跟随重定向）
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, urlStr, nil)
 	if err != nil {
-		log.Printf("[Download] Failed to create HEAD request: %v", err)
+		log.Printf("[Download] ❌ 创建 HEAD 请求失败: %v", err)
 		return ""
 	}
 
 	// 添加常见的请求头，避免某些服务器拒绝 HEAD 请求
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 	req.Header.Set("Accept", "*/*")
+	log.Printf("[Download] 📤 发送 HEAD 请求: %s", urlStr)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("[Download] Failed to HEAD request: %v", err)
+		log.Printf("[Download] ❌ HEAD 请求失败: %v", err)
 		return ""
 	}
 	defer resp.Body.Close()
 
-	log.Printf("[Download] HEAD request for %s: status=%d, content-type=%s, final-url=%s",
-		urlStr, resp.StatusCode, resp.Header.Get("Content-Type"), resp.Request.URL.String())
+	log.Printf("[Download] ✅ HEAD 响应: status=%d, content-type=%s, final-url=%s",
+		resp.StatusCode, resp.Header.Get("Content-Type"), resp.Request.URL.String())
+
+	// 检查 HTTP 状态码
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		log.Printf("[Download] ⚠️  HTTP 状态码异常: %d", resp.StatusCode)
+		return ""
+	}
 
 	// 从 Content-Type 获取扩展名
 	contentType := resp.Header.Get("Content-Type")
-	if contentType != "" {
-		// 去掉参数部分，如 "image/jpeg; charset=utf-8" -> "image/jpeg"
-		if idx := strings.Index(contentType, ";"); idx != -1 {
-			contentType = contentType[:idx]
-		}
-		contentType = strings.TrimSpace(contentType)
+	log.Printf("[Download] 📋 原始 Content-Type: '%s'", contentType)
 
-		// 获取扩展名
-		exts, err := mime.ExtensionsByType(contentType)
-		if err == nil && len(exts) > 0 {
-			ext := exts[0] // 使用第一个扩展名
-			timestamp := time.Now().Unix()
-			filename := fmt.Sprintf("file_%d%s", timestamp, ext)
-			log.Printf("[Download] Content-Type: %s, detected extension: %s, filename: %s", contentType, ext, filename)
-			return filename
-		}
+	if contentType == "" {
+		log.Printf("[Download] ⚠️  Content-Type 为空")
+		return ""
 	}
 
-	return ""
+	// 去掉参数部分，如 "image/jpeg; charset=utf-8" -> "image/jpeg"
+	if idx := strings.Index(contentType, ";"); idx != -1 {
+		contentType = contentType[:idx]
+	}
+	contentType = strings.TrimSpace(contentType)
+	log.Printf("[Download] 📋 清理后 Content-Type: '%s'", contentType)
+
+	// 获取扩展名
+	exts, err := mime.ExtensionsByType(contentType)
+	if err != nil {
+		log.Printf("[Download] ❌ 无法从 Content-Type '%s' 获取扩展名: %v", contentType, err)
+		return ""
+	}
+
+	if len(exts) == 0 {
+		log.Printf("[Download] ⚠️  Content-Type '%s' 没有对应的扩展名", contentType)
+		return ""
+	}
+
+	ext := exts[0] // 使用第一个扩展名
+	timestamp := time.Now().Unix()
+	filename := fmt.Sprintf("file_%d%s", timestamp, ext)
+	log.Printf("[Download] ✅ 检测成功: Content-Type=%s, 扩展名=%s, 文件名=%s", contentType, ext, filename)
+	return filename
 }
 
 func (s *DownloadService) CheckDownloaderStatus(ctx context.Context) (map[string]interface{}, error) {
