@@ -19,15 +19,15 @@ import (
 )
 
 type DownloadService struct {
-	db           *gorm.DB
-	downloader   downloader.Downloader
+	db            *gorm.DB
+	downloader    downloader.Downloader
 	configService *SystemConfigService
 }
 
 func NewDownloadService(db *gorm.DB, dl downloader.Downloader) *DownloadService {
 	return &DownloadService{
-		db:           db,
-		downloader:   dl,
+		db:            db,
+		downloader:    dl,
 		configService: NewSystemConfigService(db),
 	}
 }
@@ -107,6 +107,12 @@ func (s *DownloadService) SubmitDownload(ctx context.Context, req types.Download
 	options := make(map[string]interface{})
 	// BT/Magnet 下载完成后不做种
 	options["seed-time"] = 0
+
+	// 支持 HTTP 重定向（如抖音的 302 重定向）
+	options["max-tries"] = 5
+	options["max-connection-per-server"] = 5
+	options["split"] = 5
+	options["min-split-size"] = "1M"
 
 	if downloadPath != "" {
 		if strings.HasSuffix(downloadPath, "/") {
@@ -189,12 +195,12 @@ func (s *DownloadService) ListTasks(ctx context.Context) ([]*model.DownloadTask,
 
 // TaskQueryParams 任务查询参数
 type TaskQueryParams struct {
-	Page        int
-	PageSize    int
-	Statuses    []string
-	PluginName  string
-	Category    string
-	Filename    string
+	Page       int
+	PageSize   int
+	Statuses   []string
+	PluginName string
+	Category   string
+	Filename   string
 }
 
 // TaskQueryResult 任务查询结果
@@ -227,7 +233,6 @@ func (s *DownloadService) ListTasksWithPagination(ctx context.Context, params Ta
 	if params.Filename != "" {
 		query = query.Where("filename ILIKE ?", "%"+params.Filename+"%")
 	}
-
 
 	// 计算总数
 	var total int64
@@ -269,6 +274,12 @@ func (s *DownloadService) RetryTask(ctx context.Context, id uint) error {
 	if task.Filename != "" {
 		options["out"] = task.Filename
 	}
+
+	// 添加重定向和防盗链支持
+	options["max-tries"] = 5
+	options["max-connection-per-server"] = 5
+	options["split"] = 5
+	options["min-split-size"] = "1M"
 
 	gid, err := s.downloader.AddURI(ctx, []string{task.URL}, options)
 	if err != nil {
