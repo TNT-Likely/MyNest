@@ -2,20 +2,127 @@
 
 **链接的归巢** | *Where links come home.*
 
-自动将 Telegram、RSS 等来源的链接保存到你的 NAS，私有、安全、可扩展。
+自动将 Telegram、网页媒体资源等保存到你的 NAS，私有、安全、可扩展。
 
-✨ 插件化架构 | 🚀 aria2 驱动 | 🔐 完全自托管
+✨ 插件化架构 | 🚀 aria2 驱动 | 🔐 完全自托管 | 🌐 Chrome 扩展
 
-## 功能特性
+---
 
+## 📦 产品矩阵
+
+MyNest 提供两种使用方式，满足不同场景需求：
+
+### 🌐 Chrome 扩展（浏览器插件）
+
+一键下载网页资源到你的 NAS，无需切换窗口。
+
+**核心功能：**
+- 🔍 **智能资源嗅探**：自动识别页面中的图片、视频、音频资源
+- 📐 **资源大小检测**：自动获取资源大小并排序，快速找到高清资源
+- 🎯 **按类型筛选**：支持图片/视频/音频独立过滤
+- 👁️ **资源预览**：下载前预览资源内容
+- 💾 **增量嗅探**：新资源自动追加，不丢失已嗅探内容
+- 🔗 **右键下载**：选中链接/图片/视频/音频，右键发送到 NAS
+- 📋 **文本链接识别**：选中文本包含的 URL 自动提取
+- 📊 **任务管理**：实时查看下载进度（活跃/已完成/失败）
+- 🌐 **跨平台支持**：支持抖音/TikTok、小红书、B站、快手等主流平台
+
+**使用场景：**
+- 📺 浏览抖音/B站时一键保存视频
+- 🖼️ 批量下载小红书图片
+- 🎵 收藏网页音乐到本地
+- 📁 管理浏览器下载任务
+
+#### 产品截图
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="assets/preview/chrome-extension-popup.png" alt="扩展弹窗" />
+      <p align="center"><b>扩展弹窗 - 任务管理</b></p>
+    </td>
+    <td width="50%">
+      <img src="assets/preview/chrome-extension-sniff.png" alt="资源嗅探" />
+      <p align="center"><b>资源嗅探 - 智能识别</b></p>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2">
+      <img src="assets/preview/chrome-extension-download.png" alt="下载管理" />
+      <p align="center"><b>下载管理 - 进度追踪</b></p>
+    </td>
+  </tr>
+</table>
+
+**安装方式：**
+```bash
+# 从 GitHub Release 下载最新版本
+https://github.com/matrix/mynest/releases/latest
+
+# 1. 下载 mynest-chrome-extension-vX.X.X.zip
+# 2. 解压文件
+# 3. Chrome 浏览器 -> 扩展程序 -> 开启"开发者模式"
+# 4. 点击"加载已解压的扩展程序" -> 选择解压后的文件夹
+```
+
+---
+
+### 🖥️ NAS 服务端（自托管后端）
+
+强大的自动化下载中心，支持插件扩展。
+
+**核心功能：**
 - 🔌 **插件化架构**：独立进程插件系统，热插拔支持
 - 📥 **多协议下载**：支持 HTTP/HTTPS、FTP、磁力链接、BT 种子
 - 💬 **Telegram 集成**：自动解析消息链接、转发消息、媒体附件
 - 📂 **智能路径管理**：可配置下载路径模板 `{plugin}/{date}/{filename}`
 - 🗄️ **PostgreSQL 存储**：可靠的任务和配置持久化
-- 🎨 **现代 UI**：React + shadcn/ui，响应式设计
+- 🎨 **现代 UI**：React + shadcn/ui，响应式设计，支持移动端
 - 📊 **实时监控**：插件运行状态、日志查看、下载进度
 - 🐳 **一键部署**：Docker Compose 开箱即用
+
+**使用场景：**
+- 🤖 **Telegram Bot 自动下载**
+  - 向 Bot 发送包含链接的消息自动触发下载
+  - 转发 Telegram 频道/群组中的媒体文件
+  - 支持图片、视频、音频、文档自动保存
+  - 可配置白名单，仅允许指定用户使用
+- 📰 RSS 订阅自动下载更新内容
+- 📺 订阅 UP 主自动下载新视频
+- ☁️ 整合多个云盘为统一下载中心
+
+#### 产品截图
+
+<table>
+  <tr>
+    <td width="70%">
+      <img src="assets/preview/dashboard-pc.png" alt="PC端仪表盘" />
+      <p align="center"><b>PC 端 - 任务管理与插件配置</b></p>
+    </td>
+    <td width="30%">
+      <img src="assets/preview/dashboard-mobile.png" alt="移动端适配" />
+      <p align="center"><b>移动端 - 响应式适配</b></p>
+    </td>
+  </tr>
+</table>
+
+---
+
+## 🎯 功能特性对比
+
+| 功能 | Chrome 扩展 | NAS 服务端 |
+|------|------------|-----------|
+| 网页资源嗅探 | ✅ | ❌ |
+| 右键快捷下载 | ✅ | ❌ |
+| 资源预览 | ✅ | ❌ |
+| Telegram Bot | ❌ | ✅ |
+| 插件系统 | ❌ | ✅ |
+| 任务调度 | ❌ | ✅ |
+| 磁力/BT 下载 | ❌ | ✅ |
+| 多用户支持 | ❌ | 🚧 开发中 |
+| RSS 订阅 | ❌ | 🚧 计划中 |
+
+**💡 推荐搭配使用**：Chrome 扩展 + NAS 服务端，实现完整的下载管理生态
 
 ## 快速部署
 
@@ -314,27 +421,108 @@ const PLUGIN_CONFIGS = {
 }
 ```
 
-## 路线图
+## 🗺️ 产品路线图
 
+### ✅ 已完成
+
+**Chrome 扩展 v1.0**
+- [x] 智能资源嗅探（图片/视频/音频）
+- [x] 资源大小检测与排序
+- [x] 右键菜单快捷下载
+- [x] 增量嗅探与状态持久化
+- [x] 任务进度实时追踪
+- [x] 支持主流视频平台
+
+**NAS 服务端 v1.0**
 - [x] Telegram Bot 插件
 - [x] Web 界面配置插件
 - [x] 下载路径模板
 - [x] 插件运行日志
-- [ ] RSS 订阅插件
-- [ ] 文件自动分类与重命名
-- [ ] WebSocket 实时进度推送
-- [ ] 用户认证与多用户支持
-- [ ] 云存储同步（S3/阿里云 OSS）
-- [ ] 移动端 App
+- [x] 移动端响应式适配
+- [x] Docker 一键部署
 
-## 技术栈
+---
 
+### 🚧 开发中
+
+**Chrome 扩展 v1.1**
+- [ ] **更多资源嗅探策略**
+  - [ ] HLS/DASH 流媒体自动识别
+  - [ ] 网页动态加载资源监听
+  - [ ] Canvas/WebGL 渲染内容捕获
+  - [ ] iframe 跨域资源嗅探
+- [ ] **智能下载优化**
+  - [ ] 资源去重（相同 URL/哈希）
+  - [ ] 自动选择最高清晰度
+  - [ ] 批量下载队列管理
+  - [ ] 下载失败自动重试
+
+**NAS 服务端 v1.1**
+- [ ] **订阅系统**
+  - [ ] RSS 订阅插件（自动下载更新）
+  - [ ] B站/YouTube UP主订阅
+  - [ ] 小红书/抖音博主订阅
+  - [ ] 自定义订阅规则（关键词/标签过滤）
+- [ ] **用户系统**
+  - [ ] 多用户支持与权限管理
+  - [ ] Token 认证与 API 密钥
+  - [ ] 下载配额与速度限制
+
+---
+
+### 🔮 计划中
+
+**v2.0 功能增强**
+- [ ] **智能分类与管理**
+  - [ ] AI 自动标签与分类
+  - [ ] 文件自动重命名（识别标题/作者）
+  - [ ] 重复文件检测与清理
+  - [ ] 智能相册生成
+- [ ] **云端整合**
+  - [ ] 阿里云盘/百度网盘插件
+  - [ ] 115 网盘/夸克网盘支持
+  - [ ] 自动上传到对象存储（S3/OSS）
+  - [ ] 本地 + 云端混合存储
+- [ ] **实时通知**
+  - [ ] WebSocket 实时进度推送
+  - [ ] Pushover/Bark 通知支持
+  - [ ] 邮件/企业微信通知
+- [ ] **移动端**
+  - [ ] iOS/Android App
+  - [ ] 移动端资源嗅探
+  - [ ] 离线下载管理
+
+---
+
+### 💡 社区建议
+
+欢迎在 [Discussions](https://github.com/matrix/mynest/discussions) 提出您的功能建议！
+
+**正在考虑的功能：**
+- 🎥 自动下载字幕与弹幕
+- 📸 Instagram/Twitter 媒体下载
+- 🎵 Spotify/网易云音乐播放列表下载
+- 📚 电子书/漫画站点自动下载
+- 🔐 加密存储与隐私保护
+- 🌍 代理池与分布式下载
+
+## 💻 技术栈
+
+### Chrome 扩展
+- **框架**: React 18 + TypeScript
+- **构建工具**: Vite 5 + @crxjs/vite-plugin
+- **扩展 API**: Chrome Extensions Manifest V3
+- **状态管理**: Chrome Storage API
+- **通信**: Chrome Messaging API, Content Scripts
+- **资源检测**: Performance API, DOM Observer
+
+### NAS 服务端
 - **后端**: Go 1.21+, Gin Web Framework, GORM
 - **数据库**: PostgreSQL 14+
 - **前端**: React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui
 - **下载引擎**: aria2 (JSON-RPC)
-- **插件系统**: 独立进程 + HTTP API
-- **部署**: Docker, Docker Compose
+- **插件系统**: 独立进程 + gRPC/HTTP API
+- **部署**: Docker, Docker Compose, Nginx
 
 ## 故障排查
 
@@ -431,24 +619,68 @@ docker pull <your-dockerhub-username>/mynest:latest
 
 查看最新版本：[Releases](https://github.com/matrix/mynest/releases)
 
-## 许可证
+---
 
-MIT License - 详见 [LICENSE](LICENSE)
-
-## 贡献
+## 🤝 贡献指南
 
 欢迎提交 Issue 和 Pull Request！
 
-**开发前请阅读 [CLAUDE.md](CLAUDE.md) 了解项目架构**
+### 开发前准备
 
-## 致谢
+1. **阅读项目架构**: [CLAUDE.md](CLAUDE.md)
+2. **了解提交规范**: 使用 Conventional Commits（如 `feat:`, `fix:`, `docs:`）
+3. **本地测试**: 确保功能正常后再提交 PR
 
-- [aria2](https://aria2.github.io/) - 强大的下载引擎
-- [shadcn/ui](https://ui.shadcn.com/) - 优雅的 UI 组件库
-- [Telegram Bot API](https://core.telegram.org/bots/api) - Bot 开发支持
+### 贡献方向
+
+我们欢迎以下类型的贡献：
+
+- 🐛 **Bug 修复**: 修复已知问题
+- ✨ **新功能**: 实现路线图中的功能
+- 📝 **文档改进**: 完善 README、API 文档
+- 🎨 **UI 优化**: 改进界面设计和用户体验
+- 🌍 **国际化**: 添加多语言支持
+- 🧪 **测试用例**: 增加单元测试和集成测试
+
+### 开发资源
+
+- **Issues**: https://github.com/matrix/mynest/issues
+- **Discussions**: https://github.com/matrix/mynest/discussions
+- **Wiki**: https://github.com/matrix/mynest/wiki
 
 ---
 
-**MyNest** — 让每一条链接，都有家可归 🪹
+## 📄 许可证
 
-*Built with ❤️ by the community*
+MIT License - 详见 [LICENSE](LICENSE)
+
+MyNest 是自由开源软件，您可以：
+- ✅ 个人使用、商业使用
+- ✅ 修改源码、二次开发
+- ✅ 分发衍生作品
+
+---
+
+## 🙏 致谢
+
+感谢以下开源项目的支持：
+
+- [aria2](https://aria2.github.io/) - 强大的多协议下载引擎
+- [shadcn/ui](https://ui.shadcn.com/) - 优雅的 React UI 组件库
+- [Telegram Bot API](https://core.telegram.org/bots/api) - Telegram Bot 开发支持
+- [@crxjs/vite-plugin](https://github.com/crxjs/chrome-extension-tools) - Chrome 扩展开发工具
+- [Vite](https://vitejs.dev/) - 现代化前端构建工具
+
+---
+
+## 📞 联系我们
+
+- **GitHub Issues**: 报告 Bug 或功能建议
+- **GitHub Discussions**: 社区讨论和问答
+- **Email**: [your-email@example.com](mailto:your-email@example.com)
+
+---
+
+**MyNest 🪹** — 让每一条链接，都有家可归
+
+*Where links come home. Built with ❤️ by the community*
