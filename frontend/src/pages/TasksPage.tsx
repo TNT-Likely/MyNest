@@ -27,6 +27,11 @@ export default function TasksPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
 
+  // 多选状态
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null)
+  const [selectionMode, setSelectionMode] = useState(false)
+
   // Tab 状态
   const [activeTab, setActiveTab] = useState('in-progress')
 
@@ -78,6 +83,11 @@ export default function TasksPage() {
 
     return () => clearInterval(interval)
   }, [currentPage, pageSize, filters, activeTab, searchQuery])
+
+  // 切换 tab 或分页时清除选择
+  useEffect(() => {
+    handleClearSelection()
+  }, [activeTab, currentPage])
 
   const loadTasks = async () => {
     try {
@@ -181,6 +191,128 @@ export default function TasksPage() {
     }
   }
 
+  // 多选相关函数
+  const handleSelectTask = (taskId: number, index: number, event?: React.MouseEvent) => {
+    const newSelectedIds = new Set(selectedIds)
+
+    if (event?.shiftKey && lastSelectedIndex !== null) {
+      // Shift 键：范围选择
+      const start = Math.min(lastSelectedIndex, index)
+      const end = Math.max(lastSelectedIndex, index)
+      for (let i = start; i <= end; i++) {
+        if (tasks[i]) {
+          newSelectedIds.add(tasks[i].id)
+        }
+      }
+    } else if (event?.ctrlKey || event?.metaKey) {
+      // Ctrl/Cmd 键：切换单个
+      if (newSelectedIds.has(taskId)) {
+        newSelectedIds.delete(taskId)
+      } else {
+        newSelectedIds.add(taskId)
+      }
+    } else {
+      // 普通点击：在选择模式下切换，否则单选
+      if (selectionMode) {
+        if (newSelectedIds.has(taskId)) {
+          newSelectedIds.delete(taskId)
+        } else {
+          newSelectedIds.add(taskId)
+        }
+      } else {
+        newSelectedIds.clear()
+        newSelectedIds.add(taskId)
+      }
+    }
+
+    setSelectedIds(newSelectedIds)
+    setLastSelectedIndex(index)
+
+    // 如果有选中项，进入选择模式
+    if (newSelectedIds.size > 0) {
+      setSelectionMode(true)
+    }
+  }
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === tasks.length) {
+      setSelectedIds(new Set())
+      setSelectionMode(false)
+    } else {
+      setSelectedIds(new Set(tasks.map(t => t.id)))
+      setSelectionMode(true)
+    }
+  }
+
+  const handleClearSelection = () => {
+    setSelectedIds(new Set())
+    setSelectionMode(false)
+    setLastSelectedIndex(null)
+  }
+
+  // 批量操作
+  const handleBatchDelete = async (deleteFiles: boolean = false) => {
+    const confirmed = await confirm({
+      title: '确认批量删除',
+      description: `确定要删除选中的 ${selectedIds.size} 个任务吗？`,
+      confirmText: '删除',
+      cancelText: '取消',
+      variant: 'destructive',
+      children: ({ value, onChange }) => (
+        <div className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            id="delete-files-batch"
+            checked={value}
+            onChange={(e) => onChange(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+          />
+          <label htmlFor="delete-files-batch" className="text-sm font-medium">
+            同时删除本地文件
+          </label>
+        </div>
+      ),
+    })
+
+    if (!confirmed) return
+
+    const deleteFilesOption = typeof confirmed === 'object' && confirmed.confirmed ? confirmed.data : false
+
+    try {
+      await Promise.all(Array.from(selectedIds).map(id => tasksApi.delete(id, deleteFilesOption)))
+      toast.success(`已删除 ${selectedIds.size} 个任务`)
+      handleClearSelection()
+      await loadTasks()
+    } catch (error) {
+      console.error('Batch delete failed:', error)
+      toast.error('批量删除失败')
+    }
+  }
+
+  const handleBatchPause = async () => {
+    try {
+      await Promise.all(Array.from(selectedIds).map(id => tasksApi.pause(id)))
+      toast.success(`已操作 ${selectedIds.size} 个任务`)
+      handleClearSelection()
+      await loadTasks()
+    } catch (error) {
+      console.error('Batch pause failed:', error)
+      toast.error('批量操作失败')
+    }
+  }
+
+  const handleBatchRetry = async () => {
+    try {
+      await Promise.all(Array.from(selectedIds).map(id => tasksApi.retry(id)))
+      toast.success(`已重试 ${selectedIds.size} 个任务`)
+      handleClearSelection()
+      await loadTasks()
+    } catch (error) {
+      console.error('Batch retry failed:', error)
+      toast.error('批量重试失败')
+    }
+  }
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
   }
@@ -272,6 +404,55 @@ export default function TasksPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4 sm:space-y-6">
+        {/* 批量操作按钮栏 */}
+        {selectionMode && selectedIds.size > 0 && (
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium">
+                已选择 {selectedIds.size} 项
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearSelection}
+                className="text-xs"
+              >
+                取消选择
+              </Button>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {activeTab === 'in-progress' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBatchPause}
+                  className="flex-1 sm:flex-initial"
+                >
+                  批量暂停
+                </Button>
+              )}
+              {activeTab === 'failed' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBatchRetry}
+                  className="flex-1 sm:flex-initial"
+                >
+                  批量重试
+                </Button>
+              )}
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => handleBatchDelete()}
+                className="flex-1 sm:flex-initial"
+              >
+                批量删除
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="in-progress" className="flex-1 sm:flex-initial text-xs sm:text-sm">进行中</TabsTrigger>
@@ -379,6 +560,13 @@ export default function TasksPage() {
                 <Table>
                   <TableHeader className="hidden md:table-header-group">
                     <TableRow>
+                      <TableHead className="w-[50px]">
+                        <Checkbox
+                          checked={selectedIds.size === tasks.length && tasks.length > 0}
+                          onCheckedChange={handleSelectAll}
+                          aria-label="全选"
+                        />
+                      </TableHead>
                       <TableHead>文件名</TableHead>
                       <TableHead>状态</TableHead>
                       <TableHead>来源</TableHead>
@@ -387,11 +575,26 @@ export default function TasksPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody className="block space-y-3 md:table-row-group md:space-y-0">
-                    {tasks.map((task) => (
-                      <TableRow key={task.id} className="flex flex-col border rounded-lg p-4 cursor-pointer hover:bg-muted/50 md:table-row md:border-b md:rounded-none md:p-0" onClick={() => {
-                        setSelectedTask(task)
-                        setDetailOpen(true)
-                      }}>
+                    {tasks.map((task, index) => (
+                      <TableRow
+                        key={task.id}
+                        className={`flex flex-col border rounded-lg p-4 cursor-pointer md:table-row md:border-0 md:rounded-none md:p-0 ${selectedIds.has(task.id) ? 'bg-primary/10' : ''}`}
+                        onClick={(e) => {
+                          if (selectionMode || e.shiftKey || e.ctrlKey || e.metaKey) {
+                            handleSelectTask(task.id, index, e)
+                          } else {
+                            setSelectedTask(task)
+                            setDetailOpen(true)
+                          }
+                        }}
+                      >
+                        <TableCell className="border-0 p-0 pb-2 md:p-4 md:w-[50px]" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.has(task.id)}
+                            onCheckedChange={() => handleSelectTask(task.id, index)}
+                            aria-label="选择任务"
+                          />
+                        </TableCell>
                         <TableCell className="border-0 p-0 md:p-4">
                           <div className="space-y-2">
                             <div className="break-all text-sm md:text-base md:truncate md:max-w-md font-medium">
@@ -521,6 +724,13 @@ export default function TasksPage() {
                 <Table>
                   <TableHeader className="hidden md:table-header-group">
                     <TableRow>
+                      <TableHead className="w-[50px]">
+                        <Checkbox
+                          checked={selectedIds.size === tasks.length && tasks.length > 0}
+                          onCheckedChange={handleSelectAll}
+                          aria-label="全选"
+                        />
+                      </TableHead>
                       <TableHead>文件名</TableHead>
                       <TableHead>状态</TableHead>
                       <TableHead>来源</TableHead>
@@ -529,11 +739,26 @@ export default function TasksPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody className="block space-y-3 md:table-row-group md:space-y-0">
-                    {tasks.map((task) => (
-                      <TableRow key={task.id} className="flex flex-col border rounded-lg p-4 cursor-pointer hover:bg-muted/50 md:table-row md:border-b md:rounded-none md:p-0" onClick={() => {
-                        setSelectedTask(task)
-                        setDetailOpen(true)
-                      }}>
+                    {tasks.map((task, index) => (
+                      <TableRow
+                        key={task.id}
+                        className={`flex flex-col border rounded-lg p-4 cursor-pointer md:table-row md:border-0 md:rounded-none md:p-0 ${selectedIds.has(task.id) ? 'bg-primary/10' : ''}`}
+                        onClick={(e) => {
+                          if (selectionMode || e.shiftKey || e.ctrlKey || e.metaKey) {
+                            handleSelectTask(task.id, index, e)
+                          } else {
+                            setSelectedTask(task)
+                            setDetailOpen(true)
+                          }
+                        }}
+                      >
+                        <TableCell onClick={(e) => e.stopPropagation()} className="border-0 p-0 hidden md:table-cell md:p-4">
+                          <Checkbox
+                            checked={selectedIds.has(task.id)}
+                            onCheckedChange={() => handleSelectTask(task.id, index)}
+                            aria-label={`选择任务 ${task.filename || task.url}`}
+                          />
+                        </TableCell>
                         <TableCell className="border-0 p-0 md:p-4">
                           <div className="break-all text-sm md:text-base md:truncate md:max-w-md font-medium">
                             {task.filename || task.url}
@@ -676,6 +901,13 @@ export default function TasksPage() {
                 <Table>
                   <TableHeader className="hidden md:table-header-group">
                     <TableRow>
+                      <TableHead className="w-[50px]">
+                        <Checkbox
+                          checked={selectedIds.size === tasks.length && tasks.length > 0}
+                          onCheckedChange={handleSelectAll}
+                          aria-label="全选"
+                        />
+                      </TableHead>
                       <TableHead>文件名</TableHead>
                       <TableHead>状态</TableHead>
                       <TableHead>错误信息</TableHead>
@@ -685,11 +917,26 @@ export default function TasksPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody className="block space-y-3 md:table-row-group md:space-y-0">
-                    {tasks.map((task) => (
-                      <TableRow key={task.id} className="flex flex-col border rounded-lg p-4 cursor-pointer hover:bg-muted/50 md:table-row md:border-b md:rounded-none md:p-0" onClick={() => {
-                        setSelectedTask(task)
-                        setDetailOpen(true)
-                      }}>
+                    {tasks.map((task, index) => (
+                      <TableRow
+                        key={task.id}
+                        className={`flex flex-col border rounded-lg p-4 cursor-pointer md:table-row md:border-0 md:rounded-none md:p-0 ${selectedIds.has(task.id) ? 'bg-primary/10' : ''}`}
+                        onClick={(e) => {
+                          if (selectionMode || e.shiftKey || e.ctrlKey || e.metaKey) {
+                            handleSelectTask(task.id, index, e)
+                          } else {
+                            setSelectedTask(task)
+                            setDetailOpen(true)
+                          }
+                        }}
+                      >
+                        <TableCell onClick={(e) => e.stopPropagation()} className="border-0 p-0 hidden md:table-cell md:p-4">
+                          <Checkbox
+                            checked={selectedIds.has(task.id)}
+                            onCheckedChange={() => handleSelectTask(task.id, index)}
+                            aria-label={`选择任务 ${task.filename || task.url}`}
+                          />
+                        </TableCell>
                         <TableCell className="border-0 p-0 md:p-4">
                           <div className="break-all text-sm md:text-base md:truncate md:max-w-md font-medium">
                             {task.filename || task.url}
